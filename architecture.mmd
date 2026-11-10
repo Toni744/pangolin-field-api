@@ -1,0 +1,60 @@
+flowchart LR
+    subgraph Local["Local development"]
+        Researcher["Researcher / field operator"]
+        ExternalID["Microsoft Entra External ID<br/>API scope + email-OTP user flow;<br/>mobile app + callback registered"]
+        LocalAPI["FastAPI on localhost:8000"]
+        LocalCredential["Azure CLI credential"]
+        Terraform["Terraform CLI"]
+        ImagePublisher["Image build / push<br/>manual follow-up"]
+        Flutter["Flutter field app<br/>planned; flutter_appauth selected;<br/>app-side callback not implemented"]
+    end
+
+    subgraph Azure["Azure subscription"]
+        subgraph AppPlane["Application plane"]
+            ACA["Azure Container Apps environment<br/>planned"]
+            API["Field Data API<br/>internal ingress only<br/>planned; deploy_api=false"]
+            AppIdentity["User-assigned managed identity<br/>planned"]
+            ACR["Azure Container Registry<br/>admin disabled<br/>planned"]
+            Storage["Blob Storage account<br/>planned; not deployed"]
+            Container["samples container<br/>planned; private access"]
+            Logs["Log Analytics workspace<br/>planned"]
+        end
+
+        subgraph ControlPlane["Infrastructure control plane"]
+            RG["Project resource group<br/>not deployed"]
+            TerraformAzure["Terraform-managed resources"]
+        end
+    end
+
+    GitHub["GitHub Actions CI<br/>tests, image build, Terraform validate<br/>workflow not run yet"]
+
+    Researcher --> Flutter
+    Flutter -.->|"Authorization Code + PKCE"| ExternalID
+    Flutter -.->|"Bearer access token<br/>samples.write"| LocalAPI
+    Researcher -->|"local development only"| LocalAPI
+    ExternalID -.->|"OIDC issuer, JWKS,<br/>audience and scope"| LocalAPI
+    API -.->|"retrieve signing keys from JWKS<br/>(cached; validate token locally)"| ExternalID
+    Flutter -.->|"Bearer access token<br/>samples.write"| API
+    LocalAPI -->|"DefaultAzureCredential"| LocalCredential
+    LocalCredential -->|"Entra ID token"| Storage
+    Storage --> Container
+    Terraform -->|"Azure CLI auth"| TerraformAzure
+    TerraformAzure --> RG
+    RG --> Storage
+    RG -.-> ACA
+    RG -.-> AppIdentity
+    RG -.-> ACR
+    RG -.-> Logs
+
+    ImagePublisher -.->|"push tagged image (future step)"| ACR
+    ACR -->|"pull tagged image (after deploy_api=true)"| API
+    AppIdentity -.->|"AcrPull"| ACR
+    ACA --> API
+    API -->|"Managed identity + Blob Data Contributor"| Storage
+    ACA -->|"Application logs"| Logs
+
+    GitHub -.->|"CI only — no Azure authentication or deploy"| TerraformAzure
+
+    classDef planned stroke-dasharray: 5 5;
+    classDef deployed fill:#dff3e4,stroke:#27864b,stroke-width:2px;
+    class ACA,API,AppIdentity,ACR,Logs,RG,Storage,Container planned;
