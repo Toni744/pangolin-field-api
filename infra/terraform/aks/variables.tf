@@ -107,6 +107,20 @@ variable "github_environment" {
   default     = "aks-deploy"
 }
 
+variable "github_oidc_repository" {
+  description = "Optional immutable GitHub OIDC repository subject (owner@ID/repo@ID)."
+  type        = string
+  default     = ""
+
+  validation {
+    condition = var.github_oidc_repository == "" || can(regex(
+      "^[A-Za-z0-9_.-]+@[0-9]+/[A-Za-z0-9_.-]+@[0-9]+$",
+      var.github_oidc_repository
+    ))
+    error_message = "Use an immutable owner@ID/repository@ID GitHub OIDC subject."
+  }
+}
+
 variable "system_node_vm_size" {
   description = "VM SKU for the autoscaling AKS system node pool."
   type        = string

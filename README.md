@@ -109,6 +109,9 @@ restricted `pangolin` namespace before deploying. Public access additionally
 requires a TLS-capable ingress controller and DNS; chart ingress is disabled
 by default.
 
+If GitHub's OIDC token subject uses immutable owner and repository IDs, set
+`github_oidc_repository` to the exact `owner@ID/repository@ID` subject value.
+
 The browser demo is also disabled by default in Helm. To enable it, set
 `demo.enabled=true` and provide `demo.tenantId`, `demo.tenantDomain`,
 `demo.userFlow`, and `demo.publicClientId`, then register the public HTTPS

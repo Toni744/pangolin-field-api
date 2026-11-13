@@ -7,5 +7,6 @@ container_registry_name             = "replacewithuniquevalue"
 aks_admin_group_object_ids         = ["00000000-0000-0000-0000-000000000000"]
 api_server_authorized_ip_ranges    = ["203.0.113.10/32"]
 github_repository                  = "owner/pangolin-field-api"
+github_oidc_repository             = ""
 github_environment                 = "aks-deploy"
 system_node_vm_size                = "Standard_D2s_v5"

@@ -4,8 +4,9 @@ locals {
     project     = "pangolin-field-data"
     managed_by  = "terraform"
   }
-  enabled         = var.deploy_platform ? 1 : 0
-  cleanup_enabled = var.deploy_platform && var.enable_demo_cleanup ? 1 : 0
+  enabled                  = var.deploy_platform ? 1 : 0
+  cleanup_enabled          = var.deploy_platform && var.enable_demo_cleanup ? 1 : 0
+  github_oidc_repo_subject = var.github_oidc_repository != "" ? var.github_oidc_repository : var.github_repository
 }
 
 resource "azurerm_resource_group" "platform" {
@@ -220,7 +221,7 @@ resource "azurerm_federated_identity_credential" "github" {
   name                      = "fic-pangolin-github-deploy"
   user_assigned_identity_id = azurerm_user_assigned_identity.github[0].id
   issuer                    = "https://token.actions.githubusercontent.com"
-  subject                   = "repo:${var.github_repository}:environment:${var.github_environment}"
+  subject                   = "repo:${local.github_oidc_repo_subject}:environment:${var.github_environment}"
   audience                  = ["api://AzureADTokenExchange"]
 }
 
@@ -229,7 +230,7 @@ resource "azurerm_federated_identity_credential" "cleanup" {
   name                      = "fic-pangolin-demo-cleanup"
   user_assigned_identity_id = azurerm_user_assigned_identity.cleanup[0].id
   issuer                    = "https://token.actions.githubusercontent.com"
-  subject                   = "repo:${var.github_repository}:environment:aks-cleanup"
+  subject                   = "repo:${local.github_oidc_repo_subject}:environment:aks-cleanup"
   audience                  = ["api://AzureADTokenExchange"]
 }
 
