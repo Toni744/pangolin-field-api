@@ -30,7 +30,6 @@ live Azure verification.
   upload/queue state are required.
 - [ ] Define and test scientifically reviewed QC metrics and representative
   datasets. The current worker provides basic FASTQ QC only.
-- [ ] The optional GPU Job is a hook; no GPU application or image is provided.
 
 ## Before claiming production readiness
 
@@ -40,8 +39,6 @@ live Azure verification.
    monitoring, alerts, and incident procedures.
 3. Add Azure-backed integration coverage, data lifecycle controls, and tested
    backup/recovery.
-4. Add a real GPU workload only if measured requirements justify its cost and
-   operational complexity.
 
 See the [README](../README.md), [authentication guide](./external-user-auth.md),
 and [architecture diagram](../architecture.mmd).

@@ -18,6 +18,9 @@ const jobName = document.querySelector("#job-name");
 const jobId = document.querySelector("#job-id");
 const qcResults = document.querySelector("#qc-results");
 const jobError = document.querySelector("#job-error");
+const sampleList = document.querySelector("#sample-list");
+const libraryEmpty = document.querySelector("#library-empty");
+const refreshSamplesButton = document.querySelector("#refresh-samples");
 
 const syntheticFastq = [
   "@PANGOLIN-DEMO-1",
@@ -95,7 +98,7 @@ function renderJob(sample, status) {
   jobState.hidden = false;
   jobStatus.textContent = status.status;
   jobStatus.dataset.status = status.status;
-  jobTime.textContent = new Date().toLocaleTimeString([], {
+  jobTime.textContent = new Date(sample.observed_at || Date.now()).toLocaleTimeString([], {
     hour: "2-digit",
     minute: "2-digit",
   });
@@ -142,39 +145,110 @@ function renderJob(sample, status) {
   jobError.textContent = status.error ? `This sample could not be processed (${status.error}).` : "";
 }
 
-async function fetchSampleStatus(sample) {
-  const token = await acquireAccessToken();
-  if (!token) {
-    return null;
-  }
-  const response = await fetch(`/samples/${encodeURIComponent(sample.sample_id)}/status`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  const status = await response.json();
-  if (!response.ok) {
-    throw new Error(status.detail || "Could not retrieve sample status.");
-  }
-  return status;
+function createDownloadButton(label, sampleId, kind) {
+  const button = document.createElement("button");
+  button.className = "download-button";
+  button.type = "button";
+  button.textContent = label;
+  button.dataset.sampleId = sampleId;
+  button.dataset.downloadKind = kind;
+  return button;
 }
 
-async function pollSample() {
+function renderSampleLibrary(samples) {
+  sampleList.replaceChildren();
+  libraryEmpty.hidden = samples.length > 0;
+  for (const sample of samples) {
+    const row = document.createElement("article");
+    row.className = "sample-row";
+
+    const details = document.createElement("div");
+    details.className = "sample-details";
+    const name = document.createElement("strong");
+    name.textContent = sample.filename;
+    const metadata = document.createElement("span");
+    metadata.textContent = `${sample.site_code} · ${new Date(sample.observed_at).toLocaleString()}`;
+    details.append(name, metadata);
+
+    const status = document.createElement("span");
+    status.className = "library-status";
+    status.dataset.status = sample.status;
+    status.textContent = sample.status;
+
+    const actions = document.createElement("div");
+    actions.className = "sample-actions";
+    if (sample.status === "completed") {
+      actions.append(
+        createDownloadButton("FASTQ", sample.sample_id, "data"),
+        createDownloadButton("QC report", sample.sample_id, "report"),
+      );
+    } else if (sample.status === "failed" && sample.error) {
+      status.title = sample.error;
+    }
+
+    row.append(details, status, actions);
+    sampleList.append(row);
+  }
+}
+
+async function downloadSample(button) {
+  const token = await acquireAccessToken();
+  if (!token) {
+    return;
+  }
+  const sampleId = encodeURIComponent(button.dataset.sampleId);
+  const kind = button.dataset.downloadKind;
+  const response = await fetch(`/samples/${sampleId}/${kind}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail || "The sample could not be downloaded.");
+  }
+  const filename = /filename="([^"]+)"/i.exec(
+    response.headers.get("Content-Disposition") || "",
+  )?.[1] || `${sampleId}-${kind}`;
+  const downloadUrl = URL.createObjectURL(await response.blob());
+  const link = document.createElement("a");
+  link.href = downloadUrl;
+  link.download = filename;
+  link.click();
+  window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
+}
+
+async function refreshSamples() {
   window.clearTimeout(pollTimer);
-  const savedSample = sessionStorage.getItem("pangolin.sample");
-  if (!savedSample || !currentAccount()) {
+  if (!currentAccount()) {
     return;
   }
   try {
-    const sample = JSON.parse(savedSample);
-    const status = await fetchSampleStatus(sample);
-    if (!status) {
+    const token = await acquireAccessToken();
+    if (!token) {
       return;
     }
-    renderJob(sample, status);
-    if (status.status === "queued" || status.status === "processing") {
-      pollTimer = window.setTimeout(pollSample, 1800);
+    const response = await fetch("/samples?limit=50", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const result = await response.json();
+    if (!response.ok) {
+      throw new Error(result.detail || "Could not retrieve your samples.");
+    }
+    const samples = result.samples || [];
+    renderSampleLibrary(samples);
+
+    const savedSample = sessionStorage.getItem("pangolin.sample");
+    const activeSampleId = savedSample ? JSON.parse(savedSample).sample_id : null;
+    const activeSample = samples.find((sample) => sample.sample_id === activeSampleId);
+    if (activeSample) {
+      renderJob(activeSample, activeSample);
+    }
+    if (samples.some((sample) => ["queued", "processing"].includes(sample.status))) {
+      pollTimer = window.setTimeout(refreshSamples, 1800);
     }
   } catch (error) {
-    showMessage(error.message || "The sample status could not be refreshed.");
+    showMessage(error.message || "Your sample library could not be refreshed.");
+  } finally {
+    refreshSamplesButton.disabled = false;
   }
 }
 
@@ -212,7 +286,7 @@ async function initialize() {
     }
     setAccount(currentAccount());
     if (currentAccount()) {
-      await pollSample();
+      await refreshSamples();
     }
   } catch (error) {
     showMessage(error.message || "The demo could not be initialized.");
@@ -234,6 +308,7 @@ signinButton.addEventListener("click", async () => {
 signoutButton.addEventListener("click", async () => {
   const account = currentAccount();
   if (account) {
+    window.clearTimeout(pollTimer);
     sessionStorage.removeItem("pangolin.sample");
     try {
       await authClient.logoutRedirect({
@@ -243,6 +318,31 @@ signoutButton.addEventListener("click", async () => {
     } catch (error) {
       showMessage(error.message || "Sign-out could not be completed.");
     }
+  }
+});
+
+refreshSamplesButton.addEventListener("click", async () => {
+  clearMessage();
+  refreshSamplesButton.disabled = true;
+  await refreshSamples();
+});
+
+sampleList.addEventListener("click", async (event) => {
+  if (!(event.target instanceof Element)) {
+    return;
+  }
+  const button = event.target.closest("button[data-download-kind]");
+  if (!button) {
+    return;
+  }
+  clearMessage();
+  button.disabled = true;
+  try {
+    await downloadSample(button);
+  } catch (error) {
+    showMessage(error.message || "The sample could not be downloaded.");
+  } finally {
+    button.disabled = false;
   }
 });
 
@@ -294,7 +394,7 @@ uploadForm.addEventListener("submit", async (event) => {
       { sample_id: receipt.sample_id, filename: activeFile.name },
       { status: "queued", qc: null, error: null },
     );
-    pollTimer = window.setTimeout(pollSample, 800);
+    await refreshSamples();
   } catch (error) {
     showMessage(error.message || "The sample could not be uploaded.");
   } finally {

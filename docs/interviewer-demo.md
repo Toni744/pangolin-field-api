@@ -38,10 +38,13 @@ Open [http://localhost:8081](http://localhost:8081), choose **Continue with
 email**, then sign in with an account allowed by the Pangolin External ID user
 flow. The app registration has `http://localhost:8081/` registered as a
 Single-page application redirect URI; if that registration changes, set the
-new exact callback URI in the tenant before sign-in. Select **Use a synthetic
-demo sample** and choose **Upload & queue analysis**. The page displays the
-sample's progress through storage, queue, and worker processing, followed by
-its QC metrics.
+new exact callback URI in the tenant before sign-in. Select **Use a synthetic demo sample** and choose **Upload & queue analysis**.
+The page displays the sample's progress through storage, queue, and worker
+processing, followed by its QC metrics. After processing, the **Sample library**
+shows the signed-in user's submitted samples and provides downloads for that
+sample's original FASTQ file and QC report. The API scopes listing and downloads
+to the authenticated user's identity; another user cannot retrieve those
+objects by guessing a sample ID.
 
 Useful checks and logs:
 
@@ -64,8 +67,9 @@ data, run `docker compose down --volumes`.
 3. **Asynchronous processing:** A separate worker consumes the queue, validates
    FASTQ records, and calculates basic read, base, GC-content, and mean-quality
    metrics. Failed messages use retry and poison-queue handling.
-4. **Status and results:** The browser polls the owner-scoped status endpoint
-   and renders the processing stages and QC result.
+4. **Status and results:** The browser refreshes the authenticated user's
+   sample library, displays queued/processing/completed status and QC metrics,
+   and enables original FASTQ and report downloads only after completion.
 5. **Operations and deployment:** CI runs tests, linting, dependency and
    security scans, container build, Terraform validation, and Helm rendering.
    The manual release workflow uses GitHub OIDC and Helm to deploy to AKS when

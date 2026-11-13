@@ -23,9 +23,9 @@ provides:
   deployment workflow.
 
 The Flutter client, site/organization authorization, public TLS ingress,
-operational dashboards/alerts, remote Terraform state, and a real GPU
-bioinformatics pipeline are not implemented. The GPU Job is only a configurable
-hook. The root Container Apps Terraform is retired; use only
+operational dashboards/alerts, remote Terraform state, and a production
+bioinformatics pipeline are not implemented. Processing uses CPU only. The
+root Container Apps Terraform is retired; use only
 [`infra/terraform/aks`](./infra/terraform/aks) and
 [`deploy/helm/pangolin`](./deploy/helm/pangolin).
 
@@ -37,7 +37,7 @@ Python 3.12 or newer:
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install -r requirements-dev.txt
-pytest -q
+python -m pytest -q
 ```
 
 ## Interview demo (local)
@@ -89,8 +89,7 @@ the developer identity the API's Blob and Queue roles, then follow
 The AKS configuration defaults to `deploy_platform = false`. Before enabling
 it, confirm the subscription, region and quotas, unique resource names,
 dedicated Entra admin group, trusted API-server CIDR, and expected cost. AKS
-uses a minimum two-node system pool and incurs charges while running; the
-optional GPU pool is disabled by default.
+uses a minimum two-node CPU system pool and incurs charges while running.
 
 ```bash
 cd infra/terraform/aks
@@ -109,6 +108,11 @@ stable-egress self-hosted runner labeled `pangolin-aks`. Bootstrap the
 restricted `pangolin` namespace before deploying. Public access additionally
 requires a TLS-capable ingress controller and DNS; chart ingress is disabled
 by default.
+
+The browser demo is also disabled by default in Helm. To enable it, set
+`demo.enabled=true` and provide `demo.tenantId`, `demo.tenantDomain`,
+`demo.userFlow`, and `demo.publicClientId`, then register the public HTTPS
+origin as a single-page application redirect URI in the customer tenant.
 
 ## Verification
 

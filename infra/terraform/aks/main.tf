@@ -114,14 +114,6 @@ resource "azurerm_user_assigned_identity" "worker" {
   tags                = local.common_tags
 }
 
-resource "azurerm_user_assigned_identity" "batch" {
-  count               = local.enabled
-  name                = "id-pangolin-batch"
-  location            = azurerm_resource_group.platform[0].location
-  resource_group_name = azurerm_resource_group.platform[0].name
-  tags                = local.common_tags
-}
-
 resource "azurerm_user_assigned_identity" "github" {
   count               = local.enabled
   name                = "id-pangolin-github-deploy"
@@ -196,24 +188,6 @@ resource "azurerm_kubernetes_cluster" "platform" {
   }
 }
 
-resource "azurerm_kubernetes_cluster_node_pool" "gpu" {
-  count                 = var.enable_gpu_node_pool ? 1 : 0
-  name                  = "gpu"
-  kubernetes_cluster_id = azurerm_kubernetes_cluster.platform[0].id
-  vm_size               = var.gpu_node_vm_size
-  mode                  = "User"
-  auto_scaling_enabled  = true
-  node_count            = 0
-  min_count             = 0
-  max_count             = 1
-  os_disk_size_gb       = 128
-  vnet_subnet_id        = azurerm_subnet.aks[0].id
-  gpu_driver            = "Install"
-  node_labels           = { accelerator = "nvidia" }
-  node_taints           = ["sku=gpu:NoSchedule"]
-  tags                  = local.common_tags
-}
-
 resource "azurerm_federated_identity_credential" "api" {
   count                     = local.enabled
   name                      = "fic-pangolin-api"
@@ -229,15 +203,6 @@ resource "azurerm_federated_identity_credential" "worker" {
   user_assigned_identity_id = azurerm_user_assigned_identity.worker[0].id
   issuer                    = azurerm_kubernetes_cluster.platform[0].oidc_issuer_url
   subject                   = "system:serviceaccount:pangolin:pangolin-worker"
-  audience                  = ["api://AzureADTokenExchange"]
-}
-
-resource "azurerm_federated_identity_credential" "batch" {
-  count                     = local.enabled
-  name                      = "fic-pangolin-batch"
-  user_assigned_identity_id = azurerm_user_assigned_identity.batch[0].id
-  issuer                    = azurerm_kubernetes_cluster.platform[0].oidc_issuer_url
-  subject                   = "system:serviceaccount:pangolin:pangolin-batch"
   audience                  = ["api://AzureADTokenExchange"]
 }
 
@@ -279,14 +244,6 @@ resource "azurerm_role_assignment" "worker_blob" {
   scope                = azurerm_storage_container.samples[0].id
   role_definition_name = "Storage Blob Data Contributor"
   principal_id         = azurerm_user_assigned_identity.worker[0].principal_id
-  principal_type       = "ServicePrincipal"
-}
-
-resource "azurerm_role_assignment" "batch_blob" {
-  count                = local.enabled
-  scope                = azurerm_storage_container.samples[0].id
-  role_definition_name = "Storage Blob Data Contributor"
-  principal_id         = azurerm_user_assigned_identity.batch[0].principal_id
   principal_type       = "ServicePrincipal"
 }
 

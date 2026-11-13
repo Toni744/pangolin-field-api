@@ -9,7 +9,7 @@ from typing import Annotated, Literal
 from uuid import UUID
 
 from azure.core.exceptions import AzureError, ResourceExistsError
-from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, UploadFile
 from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
 from pydantic import BaseModel
 from starlette.middleware.base import RequestResponseEndpoint
@@ -18,7 +18,7 @@ from starlette.responses import FileResponse, Response
 from starlette.staticfiles import StaticFiles
 
 from app.auth import get_current_user
-from app.storage import BlobStore
+from app.storage import BlobStore, SampleDownload, SampleNotReadyError
 
 logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
 logger = logging.getLogger(__name__)
@@ -74,6 +74,20 @@ class SampleStatusResponse(BaseModel):
     status: Literal["queued", "processing", "completed", "failed"]
     qc: dict[str, int | float] | None = None
     error: str | None = None
+
+
+class SampleSummaryResponse(BaseModel):
+    sample_id: str
+    filename: str
+    site_code: str
+    observed_at: datetime
+    status: Literal["queued", "processing", "completed", "failed"]
+    qc: dict[str, int | float] | None = None
+    error: str | None = None
+
+
+class SampleListResponse(BaseModel):
+    samples: list[SampleSummaryResponse]
 
 
 def get_blob_store() -> Iterator[BlobStore]:
@@ -193,6 +207,88 @@ def get_sample_status(
     if sample_status is None:
         raise HTTPException(status_code=404, detail="Sample was not found.")
     return SampleStatusResponse(**sample_status)
+
+
+@app.get("/samples", response_model=SampleListResponse)
+def list_samples(
+    current_user: Annotated[dict[str, object], Depends(get_current_user)],
+    blob_store: Annotated[BlobStore, Depends(get_blob_store)],
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+) -> SampleListResponse:
+    try:
+        samples = blob_store.list_samples(
+            submitted_by=str(current_user["sub"]),
+            limit=limit,
+        )
+    except AzureError as error:
+        logger.exception("Azure Blob Storage sample list request failed")
+        raise HTTPException(
+            status_code=503, detail="Could not retrieve samples."
+        ) from error
+    return SampleListResponse(samples=samples)
+
+
+def _sample_download_response(download: SampleDownload) -> Response:
+    filename = safe_filename(download.filename)
+    return Response(
+        content=download.content,
+        media_type=download.content_type,
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Cache-Control": "private, no-store",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
+
+
+@app.get("/samples/{sample_id}/data")
+def download_sample_data(
+    sample_id: UUID,
+    current_user: Annotated[dict[str, object], Depends(get_current_user)],
+    blob_store: Annotated[BlobStore, Depends(get_blob_store)],
+) -> Response:
+    try:
+        download = blob_store.get_sample_data(
+            submitted_by=str(current_user["sub"]),
+            sample_id=sample_id,
+        )
+    except SampleNotReadyError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+    except AzureError as error:
+        logger.exception(
+            "Azure Blob Storage sample download failed for sample %s", sample_id
+        )
+        raise HTTPException(
+            status_code=503, detail="Could not retrieve sample data."
+        ) from error
+    if download is None:
+        raise HTTPException(status_code=404, detail="Sample was not found.")
+    return _sample_download_response(download)
+
+
+@app.get("/samples/{sample_id}/report")
+def download_sample_report(
+    sample_id: UUID,
+    current_user: Annotated[dict[str, object], Depends(get_current_user)],
+    blob_store: Annotated[BlobStore, Depends(get_blob_store)],
+) -> Response:
+    try:
+        download = blob_store.get_sample_report(
+            submitted_by=str(current_user["sub"]),
+            sample_id=sample_id,
+        )
+    except SampleNotReadyError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+    except AzureError as error:
+        logger.exception(
+            "Azure Blob Storage QC report request failed for sample %s", sample_id
+        )
+        raise HTTPException(
+            status_code=503, detail="Could not retrieve the QC report."
+        ) from error
+    if download is None:
+        raise HTTPException(status_code=404, detail="Sample was not found.")
+    return _sample_download_response(download)
 
 
 @app.get("/", include_in_schema=False)

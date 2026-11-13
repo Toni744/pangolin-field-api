@@ -33,11 +33,6 @@ output "worker_identity_client_id" {
   value       = var.deploy_platform ? azurerm_user_assigned_identity.worker[0].client_id : null
 }
 
-output "batch_identity_client_id" {
-  description = "Client ID for the optional GPU/bioinformatics batch workload identity."
-  value       = var.deploy_platform ? azurerm_user_assigned_identity.batch[0].client_id : null
-}
-
 output "github_deploy_identity_client_id" {
   description = "Client ID for GitHub Actions OIDC deployment."
   value       = var.deploy_platform ? azurerm_user_assigned_identity.github[0].client_id : null

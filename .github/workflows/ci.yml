@@ -23,7 +23,7 @@ jobs:
       - name: Check Python formatting
         run: ruff format --check app tests
       - name: Run tests
-        run: pytest -q
+        run: python -m pytest -q
       - name: Build container image
         run: docker build --tag pangolin-field-api:test .
 
@@ -57,7 +57,6 @@ jobs:
             --set image.tag=ci \
             --set serviceAccount.apiClientId=00000000-0000-0000-0000-000000000001 \
             --set serviceAccount.workerClientId=00000000-0000-0000-0000-000000000002 \
-            --set serviceAccount.batchClientId=00000000-0000-0000-0000-000000000003 \
             --set storage.accountUrl=https://example.blob.core.windows.net \
             --set storage.queueUrl=https://example.queue.core.windows.net
       - name: Render Helm chart
@@ -68,7 +67,6 @@ jobs:
             --set image.tag=ci \
             --set serviceAccount.apiClientId=00000000-0000-0000-0000-000000000001 \
             --set serviceAccount.workerClientId=00000000-0000-0000-0000-000000000002 \
-            --set serviceAccount.batchClientId=00000000-0000-0000-0000-000000000003 \
             --set storage.accountUrl=https://example.blob.core.windows.net \
             --set storage.queueUrl=https://example.queue.core.windows.net
 
@@ -89,7 +87,7 @@ jobs:
       - name: Scan repository for secrets and vulnerable components
         uses: gitleaks/gitleaks-action@v2
       - name: Scan files and Terraform configuration
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.28.0
         with:
           scan-type: fs
           scan-ref: .

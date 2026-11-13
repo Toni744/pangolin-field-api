@@ -14,7 +14,6 @@ flowchart LR
     CI["GitHub Actions CI<br/>tests, scans, build, IaC checks"]
     Deploy["Manual release workflow<br/>Azure OIDC + protected environment"]
     Runner["Self-hosted runner<br/>stable egress; pangolin-aks label"]
-    GPU["Optional GPU batch hook<br/>no scientific image supplied"]
     Local["Local development<br/>FastAPI + Azure CLI credential"]
 
     User --> Mobile
@@ -37,7 +36,6 @@ flowchart LR
     Terraform -.-> Monitor
     Terraform -.->|"OIDC workload identities"| API
     Terraform -.->|"OIDC workload identities"| Worker
-    Terraform -.-> GPU
     Repo --> CI
     Repo --> Deploy
     Deploy --> Runner
@@ -49,5 +47,5 @@ flowchart LR
 
     classDef planned stroke-dasharray: 5 5;
     classDef notDeployed fill:#fff3cd,stroke:#b88a00,stroke-width:2px;
-    class Mobile,GPU planned;
+    class Mobile planned;
     class AKS,Blob,Queue,ACR,Monitor,Terraform,Deploy,Runner notDeployed;

@@ -8,7 +8,7 @@ import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
 
 from app import auth, main
-from app.storage import SampleReceipt
+from app.storage import SampleDownload, SampleNotReadyError, SampleReceipt
 
 ISSUER = "https://pangolin-test.ciamlogin.com/tenant-id/v2.0"
 JWKS_URL = f"{ISSUER}/discovery/v2.0/keys"
@@ -55,10 +55,59 @@ class MemoryBlobStore:
             ):
                 return {
                     "sample_id": str(sample_id),
-                    "status": "queued",
-                    "qc": None,
-                    "error": None,
+                    "status": sample.get("status", "queued"),
+                    "qc": sample.get("qc"),
+                    "error": sample.get("error"),
                 }
+        return None
+
+    def list_samples(self, submitted_by: str, limit: int) -> list[dict[str, object]]:
+        return [
+            {
+                "sample_id": str(sample["sample_id"]),
+                "filename": sample["filename"],
+                "site_code": sample["site_code"],
+                "observed_at": sample["observed_at"],
+                "status": sample.get("status", "queued"),
+                "qc": sample.get("qc"),
+                "error": sample.get("error"),
+            }
+            for sample in self.saved
+            if sample["submitted_by"] == submitted_by
+        ][:limit]
+
+    def get_sample_data(
+        self, submitted_by: str, sample_id: UUID
+    ) -> SampleDownload | None:
+        for sample in self.saved:
+            if (
+                sample["sample_id"] == sample_id
+                and sample["submitted_by"] == submitted_by
+            ):
+                if sample.get("status") != "completed":
+                    raise SampleNotReadyError("Sample processing is not complete.")
+                return SampleDownload(
+                    filename=str(sample["filename"]),
+                    content_type="application/octet-stream",
+                    content=b"@PANGOLIN\nACGT\n+\nIIII\n",
+                )
+        return None
+
+    def get_sample_report(
+        self, submitted_by: str, sample_id: UUID
+    ) -> SampleDownload | None:
+        for sample in self.saved:
+            if (
+                sample["sample_id"] == sample_id
+                and sample["submitted_by"] == submitted_by
+            ):
+                if sample.get("status") != "completed":
+                    raise SampleNotReadyError("Sample processing is not complete.")
+                return SampleDownload(
+                    filename=f"{sample_id}-qc.json",
+                    content_type="application/json",
+                    content=b'{"read_count":1,"base_count":4}',
+                )
         return None
 
     def check_readiness(self) -> None:
@@ -192,6 +241,104 @@ def test_sample_status_is_limited_to_the_submitting_user(
     assert status_response.status_code == 200
     assert status_response.json()["status"] == "queued"
     assert other_user_response.status_code == 404
+
+
+def test_sample_library_and_downloads_are_limited_to_the_submitting_user(
+    token_keys: tuple[object, object],
+) -> None:
+    store = MemoryBlobStore()
+    sample_id = UUID("2dbf85de-daa5-4e16-bdbe-c8ab11392400")
+    store.saved.append(
+        {
+            "sample_id": sample_id,
+            "submitted_by": SUBJECT,
+            "filename": "reads.fastq",
+            "site_code": "boreal-7",
+            "observed_at": datetime(2026, 10, 25, 14, 30, tzinfo=UTC),
+            "status": "completed",
+        }
+    )
+    main.app.dependency_overrides[main.get_blob_store] = lambda: store
+    own_token = make_token(token_keys[0])
+    other_token = make_token(token_keys[0], sub="another-user")
+    try:
+        own_list = request_app(
+            "GET",
+            "/samples",
+            headers={"Authorization": f"Bearer {own_token}"},
+        )
+        other_list = request_app(
+            "GET",
+            "/samples",
+            headers={"Authorization": f"Bearer {other_token}"},
+        )
+        own_data = request_app(
+            "GET",
+            f"/samples/{sample_id}/data",
+            headers={"Authorization": f"Bearer {own_token}"},
+        )
+        other_data = request_app(
+            "GET",
+            f"/samples/{sample_id}/data",
+            headers={"Authorization": f"Bearer {other_token}"},
+        )
+        own_report = request_app(
+            "GET",
+            f"/samples/{sample_id}/report",
+            headers={"Authorization": f"Bearer {own_token}"},
+        )
+        other_report = request_app(
+            "GET",
+            f"/samples/{sample_id}/report",
+            headers={"Authorization": f"Bearer {other_token}"},
+        )
+    finally:
+        main.app.dependency_overrides.clear()
+
+    assert own_list.status_code == 200
+    assert len(own_list.json()["samples"]) == 1
+    assert own_list.json()["samples"][0]["filename"] == "reads.fastq"
+    assert other_list.status_code == 200
+    assert other_list.json()["samples"] == []
+    assert own_data.status_code == 200
+    assert own_data.content == b"@PANGOLIN\nACGT\n+\nIIII\n"
+    assert (
+        own_data.headers["content-disposition"] == 'attachment; filename="reads.fastq"'
+    )
+    assert own_data.headers["cache-control"] == "private, no-store"
+    assert other_data.status_code == 404
+    assert own_report.status_code == 200
+    assert own_report.json() == {"read_count": 1, "base_count": 4}
+    assert other_report.status_code == 404
+
+
+def test_sample_download_is_unavailable_until_processing_completes(
+    token_keys: tuple[object, object],
+) -> None:
+    store = MemoryBlobStore()
+    sample_id = UUID("2dbf85de-daa5-4e16-bdbe-c8ab11392400")
+    store.saved.append(
+        {
+            "sample_id": sample_id,
+            "submitted_by": SUBJECT,
+            "filename": "reads.fastq",
+            "site_code": "boreal-7",
+            "observed_at": datetime(2026, 10, 25, 14, 30, tzinfo=UTC),
+            "status": "processing",
+        }
+    )
+    main.app.dependency_overrides[main.get_blob_store] = lambda: store
+    try:
+        response = request_app(
+            "GET",
+            f"/samples/{sample_id}/data",
+            headers={"Authorization": f"Bearer {make_token(token_keys[0])}"},
+        )
+    finally:
+        main.app.dependency_overrides.clear()
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == "Sample processing is not complete."
 
 
 def test_create_sample_uploads_to_storage_dependency(

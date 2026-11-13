@@ -21,17 +21,6 @@ variable "deploy_platform" {
   default     = false
 }
 
-variable "enable_gpu_node_pool" {
-  description = "Create an optional, autoscaling GPU node pool. GPU VM charges apply while nodes run."
-  type        = bool
-  default     = false
-
-  validation {
-    condition     = !var.enable_gpu_node_pool || var.deploy_platform
-    error_message = "deploy_platform must be true when enable_gpu_node_pool is true."
-  }
-}
-
 variable "storage_account_name" {
   description = "Globally unique lowercase Storage account name."
   type        = string
@@ -111,12 +100,6 @@ variable "system_node_vm_size" {
   description = "VM SKU for the autoscaling AKS system node pool."
   type        = string
   default     = "Standard_D2s_v5"
-}
-
-variable "gpu_node_vm_size" {
-  description = "GPU VM SKU for the optional user node pool."
-  type        = string
-  default     = "Standard_NC4as_T4_v3"
 }
 
 variable "kubernetes_version" {

@@ -130,6 +130,24 @@ h3 { margin: 0; font-size: 14px; font-weight: 680; letter-spacing: -.02em; }
 .metric strong { color: #32443a; font-family: Georgia,serif; font-size: 17px; font-weight: 400; }
 .job-error { margin-top: 12px; padding: 9px; border-radius: 5px; background: #fff3ef; color: #9c4c3a; font-size: 9px; line-height: 1.5; }
 
+.library-card { margin-top: 18px; padding: 21px; border: 1px solid #e8ebe5; border-radius: 10px; background: #fff; }
+.library-card .card-title-row { align-items: center; margin-bottom: 13px; }
+.library-card .card-title-row .eyebrow { margin-bottom: 6px; }
+.refresh-button, .download-button { min-height: 30px; padding: 0 10px; border: 1px solid #e1e8dc; border-radius: 5px; background: #fbfcf9; color: #557342; font-size: 9px; font-weight: 700; }
+.refresh-button:hover, .download-button:hover { border-color: #b6ce9f; background: #f3f8ec; }
+.refresh-button:disabled, .download-button:disabled { cursor: wait; opacity: .6; }
+.library-empty { padding: 19px 0; color: #99a39b; font-size: 10px; text-align: center; }
+.sample-list { display: grid; }
+.sample-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 16px; padding: 13px 0; border-top: 1px solid #edf0eb; }
+.sample-details { display: grid; min-width: 0; gap: 4px; }
+.sample-details strong { overflow: hidden; color: #46564c; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.sample-details span { overflow: hidden; color: #97a198; font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+.library-status { padding: 5px 7px; border-radius: 4px; background: #edf4e6; color: #52733e; font-size: 7px; font-weight: 750; letter-spacing: .05em; text-transform: uppercase; }
+.library-status[data-status="processing"] { background: #fff3e7; color: #a76636; }
+.library-status[data-status="failed"] { background: #fff0ed; color: #a34a3b; }
+.sample-actions { display: flex; gap: 6px; }
+.download-button { min-height: 28px; }
+
 .footer { display: flex; justify-content: space-between; padding: 0 4px 26px; color: #919b94; font-size: 7px; font-weight: 750; letter-spacing: .1em; }
 .footer b { padding: 0 4px; color: #b7c1b6; }
 
@@ -142,6 +160,8 @@ h3 { margin: 0; font-size: 14px; font-weight: 680; letter-spacing: -.02em; }
   .orbit-art { right: -120px; opacity: .28; }
   .workspace { padding: 24px 20px; }
   .upload-layout { grid-template-columns: 1fr; }
+  .sample-row { grid-template-columns: minmax(0, 1fr) auto; gap: 10px; }
+  .sample-actions { grid-column: 1 / -1; }
   .empty-state, .job-state { min-height: 220px; }
 }
 

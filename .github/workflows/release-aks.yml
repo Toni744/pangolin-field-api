@@ -27,7 +27,6 @@ jobs:
           STORAGE_QUEUE_URL: ${{ vars.STORAGE_QUEUE_URL }}
           API_IDENTITY_CLIENT_ID: ${{ vars.API_IDENTITY_CLIENT_ID }}
           WORKER_IDENTITY_CLIENT_ID: ${{ vars.WORKER_IDENTITY_CLIENT_ID }}
-          BATCH_IDENTITY_CLIENT_ID: ${{ vars.BATCH_IDENTITY_CLIENT_ID }}
         run: |
           set -euo pipefail
           : "${AZURE_CLIENT_ID:?Set the aks-deploy environment variable AZURE_CLIENT_ID}"
@@ -41,7 +40,6 @@ jobs:
           : "${STORAGE_QUEUE_URL:?Set the aks-deploy environment variable STORAGE_QUEUE_URL}"
           : "${API_IDENTITY_CLIENT_ID:?Set the aks-deploy environment variable API_IDENTITY_CLIENT_ID}"
           : "${WORKER_IDENTITY_CLIENT_ID:?Set the aks-deploy environment variable WORKER_IDENTITY_CLIENT_ID}"
-          : "${BATCH_IDENTITY_CLIENT_ID:?Set the aks-deploy environment variable BATCH_IDENTITY_CLIENT_ID}"
       - name: Sign in to Azure with GitHub OIDC
         uses: azure/login@v2
         with:
@@ -89,7 +87,6 @@ jobs:
           STORAGE_QUEUE_URL: ${{ vars.STORAGE_QUEUE_URL }}
           API_IDENTITY_CLIENT_ID: ${{ vars.API_IDENTITY_CLIENT_ID }}
           WORKER_IDENTITY_CLIENT_ID: ${{ vars.WORKER_IDENTITY_CLIENT_ID }}
-          BATCH_IDENTITY_CLIENT_ID: ${{ vars.BATCH_IDENTITY_CLIENT_ID }}
         run: |
           set -euo pipefail
           kubectl get namespace pangolin >/dev/null
@@ -106,5 +103,4 @@ jobs:
             --set-string storage.accountUrl="$STORAGE_ACCOUNT_URL" \
             --set-string storage.queueUrl="$STORAGE_QUEUE_URL" \
             --set-string serviceAccount.apiClientId="$API_IDENTITY_CLIENT_ID" \
-            --set-string serviceAccount.workerClientId="$WORKER_IDENTITY_CLIENT_ID" \
-            --set-string serviceAccount.batchClientId="$BATCH_IDENTITY_CLIENT_ID"
+            --set-string serviceAccount.workerClientId="$WORKER_IDENTITY_CLIENT_ID"

@@ -83,6 +83,17 @@ class SampleReceipt:
     metadata_blob_name: str
 
 
+@dataclass(frozen=True)
+class SampleDownload:
+    filename: str
+    content_type: str
+    content: bytes
+
+
+class SampleNotReadyError(Exception):
+    pass
+
+
 class BlobStore:
     def __init__(
         self,
@@ -135,15 +146,8 @@ class BlobStore:
     def get_sample_status(
         self, submitted_by: str, sample_id: UUID
     ) -> dict[str, object] | None:
-        subject_hash = hashlib.sha256(submitted_by.encode("utf-8")).hexdigest()
-        metadata_blob_name = f"users/{subject_hash}/samples/{sample_id}/metadata.json"
-        metadata_blob = self._service.get_blob_client(
-            self._container_name,
-            metadata_blob_name,
-        )
-        try:
-            metadata = json.loads(metadata_blob.download_blob().readall())
-        except ResourceNotFoundError:
+        metadata = self._get_sample_metadata(submitted_by, sample_id)
+        if metadata is None:
             return None
 
         return {
@@ -152,6 +156,126 @@ class BlobStore:
             "qc": metadata.get("qc"),
             "error": metadata.get("processing_error"),
         }
+
+    def list_samples(
+        self, submitted_by: str, limit: int = 50
+    ) -> list[dict[str, object]]:
+        user_prefix = self._user_prefix(submitted_by)
+        container = self._service.get_container_client(self._container_name)
+        samples: list[dict[str, object]] = []
+        for blob in container.list_blobs(name_starts_with=f"{user_prefix}/samples/"):
+            if not blob.name.endswith("/metadata.json"):
+                continue
+            metadata_blob = container.get_blob_client(blob.name)
+            metadata = json.loads(metadata_blob.download_blob().readall())
+            if not isinstance(metadata, dict):
+                raise TypeError(f"Sample metadata is invalid: {blob.name}")
+            if metadata.get("submitted_by") != submitted_by:
+                continue
+
+            sample_id = UUID(metadata["sample_id"])
+            expected_metadata_name = f"{user_prefix}/samples/{sample_id}/metadata.json"
+            if blob.name != expected_metadata_name:
+                raise ValueError(f"Sample metadata path is invalid: {blob.name}")
+            samples.append(
+                {
+                    "sample_id": str(sample_id),
+                    "filename": metadata["filename"],
+                    "site_code": metadata["site_code"],
+                    "observed_at": metadata["observed_at"],
+                    "status": metadata.get("status", "queued"),
+                    "qc": metadata.get("qc"),
+                    "error": metadata.get("processing_error"),
+                }
+            )
+
+        samples.sort(key=lambda sample: str(sample["observed_at"]), reverse=True)
+        return samples[:limit]
+
+    def get_sample_data(
+        self, submitted_by: str, sample_id: UUID
+    ) -> SampleDownload | None:
+        metadata = self._get_sample_metadata(submitted_by, sample_id)
+        if metadata is None:
+            return None
+        if metadata.get("status") != "completed":
+            raise SampleNotReadyError("Sample processing is not complete.")
+
+        data_blob_name = metadata.get("data_blob_name")
+        expected_prefix = f"{self._sample_prefix(submitted_by, sample_id)}/data/"
+        if (
+            not isinstance(data_blob_name, str)
+            or not data_blob_name.startswith(expected_prefix)
+            or "/" in data_blob_name[len(expected_prefix) :]
+        ):
+            raise ValueError("Sample metadata contains an invalid data path.")
+
+        data_blob = self._service.get_blob_client(
+            self._container_name,
+            data_blob_name,
+        )
+        return SampleDownload(
+            filename=metadata["filename"],
+            content_type="application/octet-stream",
+            content=data_blob.download_blob().readall(),
+        )
+
+    def get_sample_report(
+        self, submitted_by: str, sample_id: UUID
+    ) -> SampleDownload | None:
+        metadata = self._get_sample_metadata(submitted_by, sample_id)
+        if metadata is None:
+            return None
+        if metadata.get("status") != "completed":
+            raise SampleNotReadyError("Sample processing is not complete.")
+
+        report_blob_name = metadata.get("qc_result_blob_name")
+        expected_name = (
+            f"{self._sample_prefix(submitted_by, sample_id)}/results/qc.json"
+        )
+        if report_blob_name != expected_name:
+            raise ValueError("Sample metadata contains an invalid QC report path.")
+
+        report_blob = self._service.get_blob_client(
+            self._container_name,
+            expected_name,
+        )
+        return SampleDownload(
+            filename=f"{sample_id}-qc.json",
+            content_type="application/json",
+            content=report_blob.download_blob().readall(),
+        )
+
+    def _get_sample_metadata(
+        self, submitted_by: str, sample_id: UUID
+    ) -> dict[str, object] | None:
+        metadata_blob_name = (
+            f"{self._sample_prefix(submitted_by, sample_id)}/metadata.json"
+        )
+        metadata_blob = self._service.get_blob_client(
+            self._container_name, metadata_blob_name
+        )
+        try:
+            metadata = json.loads(metadata_blob.download_blob().readall())
+        except ResourceNotFoundError:
+            return None
+
+        if not isinstance(metadata, dict):
+            raise TypeError(f"Sample metadata is invalid: {metadata_blob_name}")
+        if metadata.get("submitted_by") != submitted_by or metadata.get(
+            "sample_id"
+        ) != str(sample_id):
+            return None
+        return metadata
+
+    @staticmethod
+    def _user_prefix(submitted_by: str) -> str:
+        subject_hash = hashlib.sha256(submitted_by.encode("utf-8")).hexdigest()
+        return f"users/{subject_hash}"
+
+    @classmethod
+    def _sample_prefix(cls, submitted_by: str, sample_id: UUID) -> str:
+        return f"{cls._user_prefix(submitted_by)}/samples/{sample_id}"
 
     def check_readiness(self) -> None:
         self._service.get_container_client(

@@ -11,6 +11,13 @@ auth:
   scope: samples.write
   allowedClientId: 927109f8-f2d7-4e2d-94b2-eb26f3d02cba
 
+demo:
+  enabled: false
+  tenantId: ""
+  tenantDomain: ""
+  userFlow: ""
+  publicClientId: ""
+
 storage:
   accountUrl: ""
   queueUrl: ""
@@ -23,8 +30,6 @@ serviceAccount:
   apiClientId: ""
   workerName: pangolin-worker
   workerClientId: ""
-  batchName: pangolin-batch
-  batchClientId: ""
 
 api:
   replicas: 2
@@ -85,19 +90,3 @@ networkPolicy:
   enabled: true
   ingressNamespace: ingress-nginx
   monitoringNamespace: monitoring
-
-gpuBatch:
-  enabled: false
-  runId: ""
-  image: ""
-  command: []
-  args: []
-  resources:
-    requests:
-      cpu: "2"
-      memory: 4Gi
-      nvidia.com/gpu: "1"
-    limits:
-      cpu: "4"
-      memory: 8Gi
-      nvidia.com/gpu: "1"

@@ -82,7 +82,7 @@
                 <span class="avatar" id="avatar">P</span>
                 <span><small>SIGNED IN AS</small><strong id="account-name"></strong></span>
               </div>
-              <span class="storage-badge"><span class="storage-dot"></span> LOCAL AZURITE STORAGE</span>
+              <span class="storage-badge"><span class="storage-dot"></span> PRIVATE SAMPLE STORAGE</span>
             </div>
 
             <div class="upload-layout">
@@ -143,6 +143,20 @@
                 </div>
               </section>
             </div>
+
+            <section class="library-card" aria-labelledby="library-title">
+              <div class="card-title-row">
+                <div>
+                  <p class="eyebrow">YOUR PRIVATE DATA</p>
+                  <h3 id="library-title">Sample library</h3>
+                </div>
+                <button class="refresh-button" id="refresh-samples" type="button">Refresh</button>
+              </div>
+              <div class="library-empty" id="library-empty">
+                Your submitted samples will appear here.
+              </div>
+              <div class="sample-list" id="sample-list" aria-live="polite"></div>
+            </section>
           </div>
         </section>
 

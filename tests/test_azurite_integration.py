@@ -84,6 +84,60 @@ def test_api_blob_queue_worker_round_trip(
             "mean_phred_quality": 40.0,
         }
 
+        async def retrieve_sample_library() -> tuple[
+            httpx.Response, httpx.Response, httpx.Response
+        ]:
+            transport = httpx.ASGITransport(app=main.app)
+            async with httpx.AsyncClient(
+                transport=transport,
+                base_url="http://test",
+            ) as client:
+                listing = await client.get("/samples")
+                data = await client.get(f"/samples/{sample_id}/data")
+                report = await client.get(f"/samples/{sample_id}/report")
+                return listing, data, report
+
+        listing, data_download, report_download = asyncio.run(retrieve_sample_library())
+        assert listing.status_code == 200
+        assert len(listing.json()["samples"]) == 1
+        assert listing.json()["samples"][0]["sample_id"] == str(sample_id)
+        assert listing.json()["samples"][0]["status"] == "completed"
+        assert data_download.status_code == 200
+        assert data_download.content == FASTQ
+        assert data_download.headers["cache-control"] == "private, no-store"
+        assert report_download.status_code == 200
+        assert report_download.json() == status["qc"]
+
+        main.app.dependency_overrides[main.get_current_user] = lambda: {
+            "sub": f"other-user-{sample_id}"
+        }
+
+        async def verify_other_user_is_denied() -> tuple[
+            httpx.Response, httpx.Response, httpx.Response
+        ]:
+            transport = httpx.ASGITransport(app=main.app)
+            async with httpx.AsyncClient(
+                transport=transport,
+                base_url="http://test",
+            ) as client:
+                listing = await client.get("/samples")
+                data = await client.get(f"/samples/{sample_id}/data")
+                report = await client.get(f"/samples/{sample_id}/report")
+                return listing, data, report
+
+        try:
+            other_listing, other_data, other_report = asyncio.run(
+                verify_other_user_is_denied()
+            )
+        finally:
+            main.app.dependency_overrides[main.get_current_user] = lambda: {
+                "sub": submitted_by
+            }
+        assert other_listing.status_code == 200
+        assert other_listing.json()["samples"] == []
+        assert other_data.status_code == 404
+        assert other_report.status_code == 404
+
         container = store._service.get_container_client(
             os.environ["BLOB_CONTAINER_NAME"]
         )
