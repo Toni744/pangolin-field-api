@@ -5,8 +5,30 @@ asynchronous FASTQ quality-control processing. It uses FastAPI, Azure Blob and
 Queue Storage, AKS, Helm, Terraform, Microsoft Entra External ID, and GitHub
 Actions.
 
-For a concise walkthrough, local demo instructions, architecture, and honest
-scope/limitations, see the [interviewer demo guide](./docs/interviewer-demo.md).
+For additional architecture and deployment details, see the
+[interviewer demo guide](./docs/interviewer-demo.md).
+
+## Hosted walkthrough
+
+Open the [Pangolin Field Lab](https://pangolin-interview-350bd3ae.canadacentral.cloudapp.azure.com/)
+in a browser. No local installation is required.
+
+1. Select **Continue with email**. Sign in, or select **No account? Create
+   one** and follow the registration prompts.
+2. In **Sample intake**, keep or edit the `calgary-sw` site code. Select
+   **Use a synthetic demo sample**, or choose a plain-text `.fastq` or `.fq`
+   file containing synthetic data.
+3. Select **Upload & queue analysis**. Watch **Processing status** as the file
+   is saved, queued, and processed.
+4. Once processing is complete, review the QC metrics. In **Sample library**,
+   select **FASTQ** or **QC report** to download the original file or report.
+   The library and downloads are scoped to the signed-in user.
+5. Select **Sign out** when finished.
+
+Use synthetic data only; do not upload real patient or location data. The
+site code is descriptive and does not grant access. The hosted instance is
+scheduled for cleanup on **November 15, 2026 at 6 p.m. MST**; uploaded data
+will be deleted. Cleanup can be delayed or missed.
 
 ## Status
 
