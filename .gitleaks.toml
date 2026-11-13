@@ -1,0 +1,22 @@
+[extend]
+useDefault = true
+
+[[rules]]
+id = "generic-api-key"
+
+  [[rules.allowlists]]
+  description = "Azurite's public, fixed emulator account key"
+  condition = "AND"
+  regexTarget = "line"
+  paths = ['''(^|/)compose\.yaml$''', '''(^|/)scripts/test-azurite-e2e\.sh$''']
+  regexes = ['''AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;''']
+
+  [[rules.allowlists]]
+  description = "Public Entra application ID used as an API audience"
+  condition = "AND"
+  regexTarget = "line"
+  paths = ['''(^|/)compose\.yaml$''', '''(^|/)terraform\.tfvars\.example$''']
+  regexes = [
+    '''^\s*ENTRA_API_AUDIENCE:\s*d0000cca-0900-4c3f-92cf-45e320e62112\s*$''',
+    '''^\s*entra_api_audience\s*=\s*"d0000cca-0900-4c3f-92cf-45e320e62112"\s*$''',
+  ]
