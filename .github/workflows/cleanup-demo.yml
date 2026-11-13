@@ -1,4 +1,4 @@
-name: Clean up interview demo
+name: Clean up hosted environment
 
 on:
   schedule:

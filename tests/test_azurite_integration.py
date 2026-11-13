@@ -56,7 +56,7 @@ def test_api_blob_queue_worker_round_trip(
                     "/samples",
                     data={
                         "sample_id": str(sample_id),
-                        "site_code": "interview-demo",
+                        "site_code": "calgary-sw",
                         "observed_at": datetime.now(UTC).isoformat(),
                     },
                     files={"file": ("sample.fastq", FASTQ, "text/plain")},

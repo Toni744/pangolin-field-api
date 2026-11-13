@@ -22,7 +22,7 @@ Missing auth configuration fails closed. Requests without a valid token receive
 401; a token with insufficient scope or a missing/mismatched `azp` receives
 403. Health checks do not require authentication.
 
-## Browser interviewer demo
+## Browser application
 
 The local demo is a same-origin browser app using MSAL Browser, authorization
 code with PKCE, and the existing public client registration. It requests the

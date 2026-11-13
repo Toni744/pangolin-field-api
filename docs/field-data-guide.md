@@ -1,4 +1,4 @@
-# Pangolin interviewer demo
+# Pangolin field data guide
 
 ## Project summary
 
@@ -20,11 +20,8 @@ compute or use Azure Blob/Queue Storage: those services are emulated locally by
 Azurite. Sign-in still uses the configured External ID tenant; check the
 tenant's billing terms before inviting additional users.
 
-The `localhost` URL is only reachable on the computer running the demo, so it
-is not a link to send to an interviewer. Share the
-[source repository](https://github.com/Toni744/pangolin-field-api) and, for a
-local walkthrough, run the demo on your computer and screen-share it. A separate
-HTTPS-hosted instance has also been deployed for a limited interview window.
+The `localhost` URL is only reachable on the computer running the application.
+A separate HTTPS-hosted instance has also been deployed for a limited period.
 
 ```bash
 git clone https://github.com/Toni744/pangolin-field-api.git
@@ -95,16 +92,6 @@ operational dashboards and alert delivery, upload quotas/rate limits,
 data-retention and backup policies, and incident/recovery procedures remain
 future work. The temporary public HTTPS proxy is configured separately from the
 Helm chart. Do not upload real patient or location data.
-
-## Suggested interview framing
-
-> I built Pangolin to demonstrate the path from an authenticated field-data
-> upload to asynchronous processing. The local demo uses a real External ID
-> sign-in flow with local Blob and Queue emulation, so the end-to-end workflow
-> can be shown without provisioning Azure compute or Storage resources. The
-> repository includes an AKS Helm chart, Terraform foundation, workload
-> identity, and CI/deployment automation, while documenting the remaining
-> operational and product work.
 
 ## Repository map
 

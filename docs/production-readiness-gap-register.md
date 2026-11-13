@@ -1,6 +1,6 @@
 # Remaining product and operational gaps
 
-This project includes a tested portfolio implementation and a temporary Azure
+This project includes a tested implementation and a temporary Azure
 deployment. Checked items indicate implemented or verified capabilities.
 
 ## Deployment

@@ -315,7 +315,7 @@ def demo_config() -> dict[str, str]:
     if not all((tenant_id, tenant_domain, user_flow, client_id, audience, scope)):
         raise HTTPException(
             status_code=503,
-            detail="The interviewer demo identity settings are incomplete.",
+            detail="The browser identity settings are incomplete.",
         )
 
     discovery_url = (

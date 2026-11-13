@@ -1,12 +1,12 @@
 # Pangolin Field Data Platform
 
-Pangolin is a DevOps portfolio project for authenticated field-data uploads and
+Pangolin is a platform for authenticated field-data uploads and
 asynchronous FASTQ quality-control processing. It uses FastAPI, Azure Blob and
 Queue Storage, AKS, Helm, Terraform, Microsoft Entra External ID, and GitHub
 Actions.
 
 For additional architecture and deployment details, see the
-[interviewer demo guide](./docs/interviewer-demo.md).
+[field data guide](./docs/field-data-guide.md).
 
 ## Hosted walkthrough
 
@@ -32,7 +32,7 @@ will be deleted. Cleanup can be delayed or missed.
 
 ## Status
 
-The application has been deployed to Azure for a limited interview window.
+The application has been deployed to Azure for a limited period.
 Terraform is opt-in; enabling it creates billable resources. The current code
 provides:
 
@@ -64,7 +64,7 @@ python -m pip install -r requirements-dev.txt
 python -m pytest -q
 ```
 
-## Interview demo (local)
+## Local browser application
 
 Docker Compose runs the API, worker, and Azurite Blob/Queue emulator; it does
 not provision Azure compute or Storage resources. Browser sign-in still uses
@@ -141,7 +141,7 @@ The browser demo is also disabled by default in Helm. To enable it, set
 `demo.userFlow`, and `demo.publicClientId`, then register the public HTTPS
 origin as a single-page application redirect URI in the customer tenant.
 
-The interview-specific cleanup workflow is scheduled for November 15, 2026,
+The cleanup workflow is scheduled for November 15, 2026,
 at 6 p.m. Mountain Standard Time. It requires `enable_demo_cleanup=true` and
 the `aks-cleanup` GitHub environment's `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`,
 and `AZURE_SUBSCRIPTION_ID` variables. Its identity has Contributor access
