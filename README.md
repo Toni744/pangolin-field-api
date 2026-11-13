@@ -114,6 +114,15 @@ The browser demo is also disabled by default in Helm. To enable it, set
 `demo.userFlow`, and `demo.publicClientId`, then register the public HTTPS
 origin as a single-page application redirect URI in the customer tenant.
 
+The interview-specific cleanup workflow is scheduled for November 15, 2026,
+at 6 p.m. Mountain Standard Time. It requires `enable_demo_cleanup=true` and
+the `aks-cleanup` GitHub environment's `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`,
+and `AZURE_SUBSCRIPTION_ID` variables. Its identity has Contributor access
+only to the dedicated `rg-pangolin-aks-interview` resource group. Deletion
+permanently removes its uploaded data. GitHub schedules can be delayed or
+missed; monitor the run and costs, and use the workflow's manual delete option
+if necessary. The Entra administrator group is outside that resource group.
+
 ## Verification
 
 Locally verified: unit tests, the Azurite-backed API → Blob → Queue → worker

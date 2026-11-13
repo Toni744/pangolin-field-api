@@ -4,7 +4,8 @@ locals {
     project     = "pangolin-field-data"
     managed_by  = "terraform"
   }
-  enabled = var.deploy_platform ? 1 : 0
+  enabled         = var.deploy_platform ? 1 : 0
+  cleanup_enabled = var.deploy_platform && var.enable_demo_cleanup ? 1 : 0
 }
 
 resource "azurerm_resource_group" "platform" {
@@ -122,6 +123,14 @@ resource "azurerm_user_assigned_identity" "github" {
   tags                = local.common_tags
 }
 
+resource "azurerm_user_assigned_identity" "cleanup" {
+  count               = local.cleanup_enabled
+  name                = "id-pangolin-demo-cleanup"
+  location            = azurerm_resource_group.platform[0].location
+  resource_group_name = azurerm_resource_group.platform[0].name
+  tags                = local.common_tags
+}
+
 resource "azurerm_kubernetes_cluster" "platform" {
   count                             = local.enabled
   name                              = "aks-pangolin-dev"
@@ -215,6 +224,15 @@ resource "azurerm_federated_identity_credential" "github" {
   audience                  = ["api://AzureADTokenExchange"]
 }
 
+resource "azurerm_federated_identity_credential" "cleanup" {
+  count                     = local.cleanup_enabled
+  name                      = "fic-pangolin-demo-cleanup"
+  user_assigned_identity_id = azurerm_user_assigned_identity.cleanup[0].id
+  issuer                    = "https://token.actions.githubusercontent.com"
+  subject                   = "repo:${var.github_repository}:environment:aks-cleanup"
+  audience                  = ["api://AzureADTokenExchange"]
+}
+
 resource "azurerm_role_assignment" "api_blob" {
   count                = local.enabled
   scope                = azurerm_storage_container.samples[0].id
@@ -292,5 +310,13 @@ resource "azurerm_role_assignment" "github_cluster_writer" {
   scope                = azurerm_kubernetes_cluster.platform[0].id
   role_definition_name = "Azure Kubernetes Service RBAC Writer"
   principal_id         = azurerm_user_assigned_identity.github[0].principal_id
+  principal_type       = "ServicePrincipal"
+}
+
+resource "azurerm_role_assignment" "cleanup_resource_group" {
+  count                = local.cleanup_enabled
+  scope                = azurerm_resource_group.platform[0].id
+  role_definition_name = "Contributor"
+  principal_id         = azurerm_user_assigned_identity.cleanup[0].principal_id
   principal_type       = "ServicePrincipal"
 }

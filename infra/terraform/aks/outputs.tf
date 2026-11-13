@@ -37,3 +37,8 @@ output "github_deploy_identity_client_id" {
   description = "Client ID for GitHub Actions OIDC deployment."
   value       = var.deploy_platform ? azurerm_user_assigned_identity.github[0].client_id : null
 }
+
+output "github_cleanup_identity_client_id" {
+  description = "Client ID for the resource-group-scoped demo cleanup identity."
+  value       = var.deploy_platform && var.enable_demo_cleanup ? azurerm_user_assigned_identity.cleanup[0].client_id : null
+}

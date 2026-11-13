@@ -1,0 +1,63 @@
+name: Clean up interview demo
+
+on:
+  schedule:
+    # 6 p.m. Mountain Standard Time on November 15, 2026.
+    - cron: "0 1 16 11 *"
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Verify access or delete the demo resource group"
+        type: choice
+        options:
+          - verify
+          - delete
+        default: verify
+      confirm_resource_group:
+        description: "For manual deletion, enter rg-pangolin-aks-interview"
+        type: string
+        required: false
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    environment: aks-cleanup
+    steps:
+      - name: Validate cleanup request
+        id: request
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          ACTION: ${{ inputs.action }}
+          CONFIRM_RESOURCE_GROUP: ${{ inputs.confirm_resource_group }}
+        run: |
+          set -euo pipefail
+          if [[ "$EVENT_NAME" == "schedule" ]]; then
+            if [[ "$(date -u +%F)" != "2026-11-16" ]]; then
+              echo "Scheduled cleanup is only valid on 2026-11-16 UTC."
+              exit 1
+            fi
+            echo "delete=true" >> "$GITHUB_OUTPUT"
+          elif [[ "$ACTION" == "delete" ]]; then
+            if [[ "$CONFIRM_RESOURCE_GROUP" != "rg-pangolin-aks-interview" ]]; then
+              echo "Confirm the exact demo resource group before deletion."
+              exit 1
+            fi
+            echo "delete=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "delete=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Sign in with the cleanup identity
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Verify demo resource group access
+        run: az group show --name rg-pangolin-aks-interview --query name -o tsv
+      - name: Delete demo resources and uploaded data
+        if: steps.request.outputs.delete == 'true'
+        run: az group delete --name rg-pangolin-aks-interview --yes

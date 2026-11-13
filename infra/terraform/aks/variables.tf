@@ -21,6 +21,17 @@ variable "deploy_platform" {
   default     = false
 }
 
+variable "enable_demo_cleanup" {
+  description = "Create a resource-group-scoped GitHub OIDC identity for demo cleanup."
+  type        = bool
+  default     = false
+
+  validation {
+    condition     = !var.enable_demo_cleanup || var.deploy_platform
+    error_message = "deploy_platform must be true when demo cleanup is enabled."
+  }
+}
+
 variable "storage_account_name" {
   description = "Globally unique lowercase Storage account name."
   type        = string
