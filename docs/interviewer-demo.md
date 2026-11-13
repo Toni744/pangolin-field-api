@@ -76,20 +76,10 @@ data, run `docker compose down --volumes`.
 
 ## Architecture
 
-```mermaid
-flowchart LR
-    Browser["Browser demo"] -->|"External ID access token"| API["FastAPI API"]
-    ExternalID["Microsoft Entra External ID"] -.->|"OIDC issuer and signing keys"| API
-    API --> Blob["Blob Storage"]
-    API --> Queue["Queue Storage"]
-    Queue --> Worker["FASTQ QC worker"]
-    Worker --> Blob
-    Browser -->|"Owner-scoped status polling"| API
-    Local["Local demo"] -.->|"Azurite emulator"| Blob
-    Local -.->|"Azurite emulator"| Queue
-    Terraform["Terraform foundation"] -.->|"opt-in"| AKS["AKS"]
-    Helm["Helm chart"] -.-> AKS
-```
+See the [architecture diagram](../architecture.mmd) for the hosted Azure
+deployment, including its public HTTPS proxy, workload identities, storage,
+monitoring, and scheduled cleanup. Local runs use Azurite instead of Azure
+Blob and Queue Storage.
 
 ## What is and is not deployed
 

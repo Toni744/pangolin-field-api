@@ -1,51 +1,53 @@
 flowchart LR
-    User["Field researcher"]
-    ExternalID["Microsoft Entra External ID<br/>email OTP; API access token"]
-    Mobile["Flutter client<br/>planned; not in repository"]
-    API["FastAPI API<br/>token validation; upload/status"]
-    Worker["Queue worker<br/>FASTQ QC; retry/poison handling"]
-    Blob["Private Blob Storage<br/>sample, metadata, QC result"]
-    Queue["Azure Storage Queue<br/>sample-jobs + poison queue"]
-    ACR["Azure Container Registry<br/>admin disabled"]
-    AKS["Azure Kubernetes Service<br/>API + worker"]
-    Monitor["Log Analytics / Container Insights"]
-    Terraform["Terraform AKS foundation<br/>opt-in; not applied"]
+    Browser["Browser<br/>Pangolin Field Lab"]
+    ExternalID["Microsoft Entra External ID<br/>customer tenant; email sign-in"]
+    DNS["Azure public DNS<br/>canadacentral.cloudapp.azure.com"]
+    LB["Azure Standard Load Balancer<br/>public IP; ports 80 and 443"]
+
+    subgraph RG["Azure subscription · rg-pangolin-aks-interview · Canada Central"]
+        subgraph AKS["AKS · Azure CNI overlay · two CPU nodes"]
+            Proxy["Caddy proxy · 1 replica<br/>HTTPS / Let's Encrypt; ephemeral certificate storage"]
+            Service["API ClusterIP service<br/>port 8000"]
+            API["FastAPI and browser assets<br/>2 replicas"]
+            Worker["FASTQ QC worker<br/>1 replica"]
+            Proxy --> Service --> API
+        end
+        Blob["Private Blob container<br/>samples, metadata and QC reports"]
+        Jobs["Storage Queue<br/>sample-jobs"]
+        Poison["Storage Queue<br/>sample-jobs-poison"]
+        ACR["Azure Container Registry<br/>Basic; admin disabled"]
+        APIIdentity["API managed identity"]
+        WorkerIdentity["Worker managed identity"]
+        Logs["Log Analytics<br/>Container Insights"]
+    end
+
+    Browser -->|"Authorization code + PKCE"| ExternalID
+    Browser -->|"HTTPS; bearer token for API calls"| DNS --> LB --> Proxy
+    ExternalID -.->|"issuer and signing keys"| API
+    API -->|"write and read owner-scoped data"| Blob
+    API -->|"enqueue jobs"| Jobs
+    Worker -->|"poll and acknowledge"| Jobs
+    Worker -->|"failed jobs"| Poison
+    Worker -->|"read samples; write QC reports"| Blob
+    API -.->|"federated workload identity"| APIIdentity
+    Worker -.->|"federated workload identity"| WorkerIdentity
+    APIIdentity -.->|"scoped Storage RBAC"| Blob
+    APIIdentity -.->|"scoped Storage RBAC"| Jobs
+    WorkerIdentity -.->|"scoped Storage RBAC"| Blob
+    WorkerIdentity -.->|"scoped Storage RBAC"| Jobs
+    WorkerIdentity -.->|"scoped Storage RBAC"| Poison
+    ACR -->|"kubelet image pull"| AKS
+    AKS -->|"container logs"| Logs
+
     Repo["GitHub repository"]
-    CI["GitHub Actions CI<br/>tests, scans, build, IaC checks"]
-    Deploy["Manual release workflow<br/>Azure OIDC + protected environment"]
-    Runner["Self-hosted runner<br/>stable egress; pangolin-aks label"]
-    Local["Local development<br/>FastAPI + Azure CLI credential"]
-
-    User --> Mobile
-    Mobile -.->|"Authorization Code + PKCE"| ExternalID
-    Mobile -.->|"Bearer access token"| API
-    ExternalID -->|"OIDC issuer/JWKS"| API
-    API -->|"Managed identity: blob access"| Blob
-    API -->|"Managed identity: queue send"| Queue
-    Queue --> Worker
-    Worker -->|"Managed identity: blob + queue processing"| Blob
-    Worker -->|"acknowledge or poison"| Queue
-    AKS --> API
-    AKS --> Worker
-    AKS --> Monitor
-    ACR -->|"image pull"| AKS
-    Terraform -.->|"provisions when explicitly enabled"| AKS
-    Terraform -.-> Blob
-    Terraform -.-> Queue
-    Terraform -.-> ACR
-    Terraform -.-> Monitor
-    Terraform -.->|"OIDC workload identities"| API
-    Terraform -.->|"OIDC workload identities"| Worker
+    CI["GitHub Actions CI<br/>tests, scans, build and IaC checks"]
+    Operator["Operator<br/>Terraform, Docker and Helm"]
+    Cleanup["Scheduled GitHub Actions cleanup<br/>15 Nov 2026, 6 p.m. MST; OIDC managed identity"]
     Repo --> CI
-    Repo --> Deploy
-    Deploy --> Runner
-    Runner -->|"Azure OIDC; build/push + Helm upgrade"| ACR
-    Runner -->|"kubelogin + Helm"| AKS
-    Local --> API
-    Local -->|"DefaultAzureCredential"| Blob
-    Local -->|"DefaultAzureCredential"| Queue
-
-    classDef planned stroke-dasharray: 5 5;
-    classDef notDeployed fill:#fff3cd,stroke:#b88a00,stroke-width:2px;
-    class Mobile planned;
-    class AKS,Blob,Queue,ACR,Monitor,Terraform,Deploy,Runner notDeployed;
+    Repo --> Operator
+    Operator -->|"build and push"| ACR
+    Operator -->|"Helm release"| AKS
+    Operator -->|"kubectl: proxy and public service"| Proxy
+    Operator -->|"provision infrastructure"| RG
+    Repo --> Cleanup
+    Cleanup -.->|"delete resource group and uploaded data"| RG
