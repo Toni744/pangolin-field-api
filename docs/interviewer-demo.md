@@ -23,9 +23,8 @@ tenant's billing terms before inviting additional users.
 The `localhost` URL is only reachable on the computer running the demo, so it
 is not a link to send to an interviewer. Share the
 [source repository](https://github.com/Toni744/pangolin-field-api) and, for a
-live walkthrough, run the demo on your computer and screen-share it. A public
-interactive demo would require a separately deployed HTTPS portal and API; that
-is not currently provided.
+local walkthrough, run the demo on your computer and screen-share it. A separate
+HTTPS-hosted instance has also been deployed for a limited interview window.
 
 ```bash
 git clone https://github.com/Toni744/pangolin-field-api.git
@@ -88,25 +87,24 @@ flowchart LR
     Browser -->|"Owner-scoped status polling"| API
     Local["Local demo"] -.->|"Azurite emulator"| Blob
     Local -.->|"Azurite emulator"| Queue
-    Terraform["Terraform foundation"] -.->|"opt-in; not applied"| AKS["AKS"]
+    Terraform["Terraform foundation"] -.->|"opt-in"| AKS["AKS"]
     Helm["Helm chart"] -.-> AKS
 ```
 
 ## What is and is not deployed
 
-The browser demo and its API/worker flow have been exercised locally with
-Azurite. The sign-in flow uses the configured External ID tenant. No AKS
-cluster, Azure Storage account, container registry, or other application
-infrastructure has been deployed for this project. The Terraform plan/apply and
-GitHub Actions deployment workflow have not been run against Azure.
+The browser and API/worker flow have been exercised locally with Azurite and in
+a temporary AKS deployment with Azure Storage and a container registry.
+Sign-in uses the configured External ID tenant. The GitHub Actions deployment
+workflow requires a separately configured self-hosted runner and has not been
+used for the hosted deployment.
 
-The local demo is a prototype, not a production clinical or bioinformatics
-service. The Flutter client is not included; QC is intentionally basic and has
-not been scientifically validated. Site/organization membership authorization,
-public TLS ingress and DNS, operational dashboards and alert delivery, upload
-quotas/rate limits, data-retention and backup policies, and production
-incident/recovery procedures remain future work. Do not upload real patient or
-location data.
+The Flutter client is not included; QC is intentionally basic and has not been
+scientifically validated. Site/organization membership authorization,
+operational dashboards and alert delivery, upload quotas/rate limits,
+data-retention and backup policies, and incident/recovery procedures remain
+future work. The temporary public HTTPS proxy is configured separately from the
+Helm chart. Do not upload real patient or location data.
 
 ## Suggested interview framing
 
@@ -115,8 +113,8 @@ location data.
 > sign-in flow with local Blob and Queue emulation, so the end-to-end workflow
 > can be shown without provisioning Azure compute or Storage resources. The
 > repository includes an AKS Helm chart, Terraform foundation, workload
-> identity, and CI/deployment automation, while clearly documenting what
-> remains before a production rollout.
+> identity, and CI/deployment automation, while documenting the remaining
+> operational and product work.
 
 ## Repository map
 

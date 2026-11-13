@@ -1,8 +1,7 @@
 # Remaining product and operational gaps
 
-This project is a tested portfolio implementation, not a deployed or
-production-ready service. Checked items describe code/configuration only, not
-live Azure verification.
+This project includes a tested portfolio implementation and a temporary Azure
+deployment. Checked items indicate implemented or verified capabilities.
 
 ## Deployment
 
@@ -11,16 +10,16 @@ live Azure verification.
 - [x] Local External ID browser demo and Azurite-backed API/worker stack.
 - [x] Helm chart, opt-in AKS Terraform, workload identity definitions, CI and
   manual OIDC deployment workflow.
-- [ ] Azure deployment, Terraform plan/apply, and GitHub workflow execution
-  remain unverified. Review costs and quotas before deployment.
-- [ ] Public TLS ingress, DNS, Prometheus/Grafana dashboards, and alert delivery
-  are not included. Helm ingress is disabled by default.
+- [x] Azure deployment, Terraform plan/apply, and GitHub Actions CI have been
+  exercised. Review costs and quotas before deployment.
+- [ ] Public TLS and DNS are configured separately for the temporary hosted
+  instance; Helm ingress is disabled by default. Prometheus/Grafana dashboards
+  and alert delivery are not included.
 - [ ] Terraform state is local unless a private backend is configured.
 
 ## Product and data protection
 
-- [ ] Build and test the Flutter client and native PKCE callback handling; the
-  local browser demo is not a deployed production portal.
+- [ ] Build and test the Flutter client and native PKCE callback handling.
 - [ ] Define site/organization membership and authorization; `site_code` is
   currently user-supplied and does not grant access.
 - [ ] Add streaming upload limits, quotas/rate limits, durable idempotency, and
@@ -31,10 +30,9 @@ live Azure verification.
 - [ ] Define and test scientifically reviewed QC metrics and representative
   datasets. The current worker provides basic FASTQ QC only.
 
-## Before claiming production readiness
+## Remaining operational work
 
-1. Validate the Azure plan, deploy a low-cost test environment, and verify
-   workload identity, Storage access, queue processing, and rollback.
+1. Verify deployment rollback and repeat Azure checks after changes.
 2. Complete user/site authorization, mobile sign-in/upload, public ingress,
    monitoring, alerts, and incident procedures.
 3. Add Azure-backed integration coverage, data lifecycle controls, and tested

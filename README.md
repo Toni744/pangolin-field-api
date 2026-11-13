@@ -10,7 +10,7 @@ scope/limitations, see the [interviewer demo guide](./docs/interviewer-demo.md).
 
 ## Status
 
-The application and deployment configuration are **not deployed to Azure**.
+The application has been deployed to Azure for a limited interview window.
 Terraform is opt-in; enabling it creates billable resources. The current code
 provides:
 
@@ -22,9 +22,11 @@ provides:
 - An AKS Helm chart, Terraform foundation, CI checks, and a manual OIDC
   deployment workflow.
 
-The Flutter client, site/organization authorization, public TLS ingress,
-operational dashboards/alerts, remote Terraform state, and a production
-bioinformatics pipeline are not implemented. Processing uses CPU only. The
+The Flutter client, site/organization authorization, operational dashboards
+and alerts, remote Terraform state, and a scientifically validated
+bioinformatics pipeline are not implemented. Public HTTPS is provided by a
+separately configured proxy; it is not installed by the Helm chart. Processing
+uses CPU only. The
 root Container Apps Terraform is retired; use only
 [`infra/terraform/aks`](./infra/terraform/aks) and
 [`deploy/helm/pangolin`](./deploy/helm/pangolin).
@@ -134,7 +136,6 @@ Locally verified: unit tests, the Azurite-backed API → Blob → Queue → work
 integration test, Docker Compose build and health/readiness checks, Ruff,
 Bandit, `pip-audit`, Terraform formatting and validation, Helm lint/render,
 workflow lint, and Pylance diagnostics. Azure deployment, Terraform plan/apply,
-and GitHub Actions CI have also been exercised for the interview demo. The
-public demo is temporary and is not a production deployment.
+and GitHub Actions CI have also been exercised for the temporary hosted demo.
 
 See the [architecture diagram](./architecture.mmd), [tenant setup record](./docs/external-id-tenant-setup.md), and [remaining product and operational gaps](./docs/production-readiness-gap-register.md).
