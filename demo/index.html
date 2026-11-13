@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#101b1a">
+    <meta name="description" content="A secure field-data intake and FASTQ quality-control demo.">
+    <title>Pangolin Field Lab</title>
+    <link rel="stylesheet" href="/demo/assets/styles.css">
+    <script
+      defer
+      src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@5.29.1/lib/msal-browser.min.js"
+      integrity="sha384-xHJFgyahKVuzavO75uNT6xBc9ileK2xOlllrnVhB+g4a61bPC6HJBLzxM/iX4/N0"
+      crossorigin="anonymous"
+    ></script>
+    <script defer src="/demo/assets/app.js"></script>
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="topbar">
+        <a class="brand" href="/" aria-label="Pangolin Field Lab home">
+          <span class="brand-mark" aria-hidden="true">p</span>
+          <span>Pangolin <span class="brand-light">Field Lab</span></span>
+        </a>
+        <div class="topbar-right">
+          <span class="environment"><span class="pulse"></span> INTERVIEW DEMO</span>
+          <button class="text-button" id="signout-button" type="button" hidden>Sign out</button>
+        </div>
+      </header>
+
+      <main>
+        <section class="intro">
+          <div class="intro-copy">
+            <p class="eyebrow">FIELD DATA, WITHOUT THE WAIT</p>
+            <h1>From sample<br>to signal.</h1>
+            <p class="intro-text">
+              A secure intake pipeline for field genomics. Upload a FASTQ sample
+              and watch the Azure-backed processing flow take it from object
+              storage to a quality report.
+            </p>
+            <div class="flow" aria-label="Processing flow">
+              <span>UPLOAD</span><i></i><span>BLOB</span><i></i><span>QUEUE</span><i></i><span>QC WORKER</span>
+            </div>
+          </div>
+          <div class="orbit-art" aria-hidden="true">
+            <div class="orbit orbit-one"></div>
+            <div class="orbit orbit-two"></div>
+            <div class="orbit-core"><span>PG</span></div>
+            <span class="orbit-dot dot-one"></span>
+            <span class="orbit-dot dot-two"></span>
+            <span class="orbit-dot dot-three"></span>
+            <span class="orbit-label">FIELD<br>GENOMICS</span>
+          </div>
+        </section>
+
+        <section class="workspace" aria-label="Sample workspace">
+          <div class="workspace-heading">
+            <div>
+              <p class="eyebrow">YOUR WORKSPACE</p>
+              <h2>Sample intake</h2>
+            </div>
+            <span class="secure-label"><span aria-hidden="true">✳</span> PRIVATE BY DESIGN</span>
+          </div>
+
+          <div class="signin-panel" id="signin-panel">
+            <div class="signin-icon" aria-hidden="true">↗</div>
+            <div class="signin-copy">
+              <h3>Your samples, your space.</h3>
+              <p>Sign in securely with email to start a private, owner-scoped processing job.</p>
+              <span class="signin-method">EMAIL ONE-TIME PASSCODE <span>·</span> ENTRA EXTERNAL ID</span>
+            </div>
+            <button class="primary-button" id="signin-button" type="button">
+              Continue with email <span aria-hidden="true">↗</span>
+            </button>
+          </div>
+
+          <div class="app-message" id="app-message" role="status" hidden></div>
+
+          <div class="dashboard" id="dashboard" hidden>
+            <div class="dashboard-meta">
+              <div class="signed-in">
+                <span class="avatar" id="avatar">P</span>
+                <span><small>SIGNED IN AS</small><strong id="account-name"></strong></span>
+              </div>
+              <span class="storage-badge"><span class="storage-dot"></span> LOCAL AZURITE STORAGE</span>
+            </div>
+
+            <div class="upload-layout">
+              <form class="upload-card" id="upload-form">
+                <div class="card-title-row">
+                  <div>
+                    <p class="eyebrow">NEW ANALYSIS</p>
+                    <h3>Upload sample data</h3>
+                  </div>
+                  <span class="step-number">01</span>
+                </div>
+
+                <label class="field-label" for="site-code">Site code</label>
+                <input id="site-code" name="site_code" type="text" value="interview-demo" maxlength="64" required>
+
+                <label class="field-label" for="sample-file">FASTQ file</label>
+                <div class="file-drop">
+                  <input id="sample-file" name="file" type="file" accept=".fastq,.fq,text/plain">
+                  <span class="file-icon" aria-hidden="true">↑</span>
+                  <strong id="file-name">Choose a FASTQ file</strong>
+                  <small>Plain-text .fastq or .fq · keep demo data synthetic</small>
+                  <button class="sample-link" id="sample-button" type="button">Use a synthetic demo sample</button>
+                </div>
+
+                <button class="primary-button submit-button" id="upload-button" type="submit">
+                  Upload &amp; queue analysis <span aria-hidden="true">→</span>
+                </button>
+                <p class="privacy-note"><span aria-hidden="true">⌑</span> Your upload is private to your account.</p>
+              </form>
+
+              <section class="result-card" aria-live="polite">
+                <div class="card-title-row">
+                  <div>
+                    <p class="eyebrow">PIPELINE ACTIVITY</p>
+                    <h3>Processing status</h3>
+                  </div>
+                  <span class="step-number">02</span>
+                </div>
+                <div class="empty-state" id="empty-state">
+                  <div class="empty-graphic" aria-hidden="true"><span>···</span></div>
+                  <strong>Nothing in the queue yet</strong>
+                  <p>Your sample and its quality report will appear here.</p>
+                </div>
+                <div class="job-state" id="job-state" hidden>
+                  <div class="job-head">
+                    <span class="job-status" id="job-status"></span>
+                    <span class="job-time" id="job-time"></span>
+                  </div>
+                  <p class="job-name" id="job-name"></p>
+                  <code class="job-id" id="job-id"></code>
+                  <div class="pipeline-steps">
+                    <div class="pipeline-step" data-step="stored"><span>01</span><div><strong>Saved to Blob Storage</strong><small>Encrypted object + metadata</small></div><i></i></div>
+                    <div class="pipeline-step" data-step="queued"><span>02</span><div><strong>Queued for processing</strong><small>Azure Queue Storage</small></div><i></i></div>
+                    <div class="pipeline-step" data-step="completed"><span>03</span><div><strong>FASTQ quality check</strong><small>Background worker</small></div><i></i></div>
+                  </div>
+                  <div class="qc-results" id="qc-results" hidden></div>
+                  <div class="job-error" id="job-error" hidden></div>
+                </div>
+              </section>
+            </div>
+          </div>
+        </section>
+
+        <footer class="footer">
+          <span>BUILT FOR FIELD SCIENCE</span>
+          <span>FASTAPI <b>·</b> AZURE STORAGE <b>·</b> ASYNCHRONOUS QC</span>
+        </footer>
+      </main>
+    </div>
+  </body>
+</html>

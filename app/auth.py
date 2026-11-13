@@ -13,12 +13,13 @@ logger = logging.getLogger(__name__)
 bearer_scheme = HTTPBearer(auto_error=False)
 
 
-def _auth_settings() -> tuple[str, str, str, str]:
+def _auth_settings() -> tuple[str, str, str, str, str]:
     issuer = os.getenv("ENTRA_EXTERNAL_ID_ISSUER", "")
     jwks_url = os.getenv("ENTRA_EXTERNAL_ID_JWKS_URL", "")
     audience = os.getenv("ENTRA_API_AUDIENCE", "")
     required_scope = os.getenv("ENTRA_API_SCOPE", "samples.write")
-    if not all((issuer, jwks_url, audience, required_scope)):
+    allowed_client_id = os.getenv("ENTRA_ALLOWED_CLIENT_ID", "").strip()
+    if not all((issuer, jwks_url, audience, required_scope, allowed_client_id)):
         logger.error("Microsoft Entra External ID token validation is not configured.")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -30,7 +31,7 @@ def _auth_settings() -> tuple[str, str, str, str]:
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="API authentication is misconfigured.",
         )
-    return issuer, jwks_url, audience, required_scope
+    return issuer, jwks_url, audience, required_scope, allowed_client_id
 
 
 @lru_cache(maxsize=4)
@@ -51,9 +52,11 @@ def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    issuer, jwks_url, audience, required_scope = _auth_settings()
+    issuer, jwks_url, audience, required_scope, allowed_client_id = _auth_settings()
     try:
-        signing_key = _jwks_client(jwks_url).get_signing_key_from_jwt(credentials.credentials)
+        signing_key = _jwks_client(jwks_url).get_signing_key_from_jwt(
+            credentials.credentials
+        )
         claims = jwt.decode(
             credentials.credentials,
             signing_key.key,
@@ -77,6 +80,15 @@ def get_current_user(
 
     subject = claims.get("sub")
     scopes = claims.get("scp")
+    authorized_party = claims.get("azp")
+    if (
+        not isinstance(authorized_party, str)
+        or authorized_party.casefold() != allowed_client_id.casefold()
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="The access token was issued to an unauthorized client application.",
+        )
     if not isinstance(subject, str) or not subject:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

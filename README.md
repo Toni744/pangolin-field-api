@@ -1,35 +1,37 @@
-# Pangolin Field Data API
+# Pangolin Field Data Platform
 
-A local-first DevOps practice project for a small field-data ingestion service. The FastAPI service accepts sample metadata and a data file, and can store the file and a JSON sidecar in private Azure Blob Storage.
+Pangolin is a DevOps portfolio project for authenticated field-data uploads and
+asynchronous FASTQ quality-control processing. It uses FastAPI, Azure Blob and
+Queue Storage, AKS, Helm, Terraform, Microsoft Entra External ID, and GitHub
+Actions.
 
-See [architecture.mmd](./architecture.mmd) for the component and identity/data-flow diagram.
+For a concise walkthrough, local demo instructions, architecture, and honest
+scope/limitations, see the [interviewer demo guide](./docs/interviewer-demo.md).
 
-## Current status
+## Status
 
-- **No project Azure resources are deployed.** The project resource group, Storage account, private container, and signed-in user's `Storage Blob Data Contributor` role assignment were deleted to stop ongoing charges. The uploaded sample files and metadata were deleted with them.
-- **No user-assigned managed identity has been created.** Terraform contains a conditional definition for one, but it has not been applied.
-- **External ID is partially configured.** The API and public mobile registrations, delegated `samples.write` permission, email-OTP `fieldusersignin` flow, and native `com.pangolinapp://oauthredirect` callback are configured. A one-off authorization-code-with-PKCE test acquired an API access token and passed it through the API's JWT validator; the observed audience and claims are recorded in [the tenant setup record](./docs/external-id-tenant-setup.md). The temporary localhost test redirect has been removed. The Flutter integration is not implemented.
-- `GET /healthz` is unauthenticated. `POST /samples` requires a valid bearer access token and the configured `samples.write` scope; it returns an error when authentication is not configured.
-- The Docker image has been built and local API tests have passed. GitHub Actions configuration exists, but no Azure deployment pipeline is set up.
+The application and deployment configuration are **not deployed to Azure**.
+Terraform is opt-in; enabling it creates billable resources. The current code
+provides:
 
-Terraform configuration remains in this repository. Applying it can recreate billable Azure resources. Review the plan and expected charges before applying.
+- An API that validates External ID access tokens and queues uploads.
+- A worker that validates four-line FASTQ records and reports basic read,
+  base, GC, and mean-quality statistics.
+- Retry and poison-queue handling, owner-scoped sample status, and Prometheus
+  metrics.
+- An AKS Helm chart, Terraform foundation, CI checks, and a manual OIDC
+  deployment workflow.
 
-## What this first milestone covers
+The Flutter client, site/organization authorization, public TLS ingress,
+operational dashboards/alerts, remote Terraform state, and a real GPU
+bioinformatics pipeline are not implemented. The GPU Job is only a configurable
+hook. The root Container Apps Terraform is retired; use only
+[`infra/terraform/aks`](./infra/terraform/aks) and
+[`deploy/helm/pangolin`](./deploy/helm/pangolin).
 
-- Python/FastAPI REST API with a health endpoint and sample upload.
-- A live Blob upload was verified previously through Azure RBAC, not storage keys; that Azure storage and uploaded data have since been deleted.
-- Container image running as a non-root user.
-- Terraform definitions for the Storage foundation and optional ACR, managed identity, Container Apps, and Log Analytics stack.
-- GitHub Actions CI for tests, image build, Terraform formatting, and validation; no Azure login or deployment.
+## Local development
 
-The planned Container App ingress is internal-only. Do not enable public ingress until an External ID tenant and app registrations are configured, caller authorization is reviewed, and the token flow has been tested end to end.
-
-See [docs/external-user-auth.md](./docs/external-user-auth.md) for tenant setup, API claims configuration, and the Flutter authorization-code-with-PKCE flow. See [docs/external-id-tenant-setup.md](./docs/external-id-tenant-setup.md) for the tenant and API registration IDs.
-See [docs/production-readiness-gap-register.md](./docs/production-readiness-gap-register.md) for the production gaps, open design decisions, and suggested delivery order.
-
-## Local API and tests
-
-Python 3.12 or newer is recommended. Create an isolated environment and install dependencies:
+Python 3.12 or newer:
 
 ```bash
 python3 -m venv .venv
@@ -38,82 +40,82 @@ python -m pip install -r requirements-dev.txt
 pytest -q
 ```
 
-The API health endpoint works without Azure credentials or authentication:
+## Interview demo (local)
+
+Docker Compose runs the API, worker, and Azurite Blob/Queue emulator; it does
+not provision Azure compute or Storage resources. Browser sign-in still uses
+the Pangolin External ID tenant and requires internet access. Check that
+tenant's billing terms before inviting additional users.
+
+Before the first sign-in, add `http://localhost:8081/` as a **Single-page
+application** redirect URI on the existing Pangolin public client registration
+(`927109f8-f2d7-4e2d-94b2-eb26f3d02cba`) in the External ID tenant. Keep its
+existing native redirect URI and client type; do not add a client secret. The
+app must remain assigned to the `fieldusersignin` user flow and have the
+`samples.write` delegated API permission.
+
+```bash
+docker compose up --build -d
+docker compose ps
+```
+
+Open [http://localhost:8081](http://localhost:8081), sign in with email, then
+choose **Use a synthetic demo sample** or select a small plain-text `.fastq`
+file. The page shows the upload, queue, worker, and QC result. Watch worker
+logs with `docker compose logs -f worker`.
+
+All Blob and Queue data stays in the local `azurite-data` volume. Stop the
+services with `docker compose down`; remove the demo data as well with
+`docker compose down -v`. Do not upload real patient or location data.
+
+The emulator-backed API → Blob → Queue → worker test can also be run with
+`bash scripts/test-azurite-e2e.sh`.
+
+Run the API and check its unauthenticated health endpoint:
 
 ```bash
 uvicorn app.main:app --host 127.0.0.1 --port 8000
 curl http://127.0.0.1:8000/healthz
 ```
 
-To upload to Azure Blob Storage, first recreate the storage resources and grant the local developer identity the required Blob data role. No Blob account or role assignment currently exists. After provisioning, set the storage URL and container name, then configure the External ID token-validation settings using values from the tenant's OpenID Connect metadata:
+For Azure-backed development outside the local demo, provision a private
+`samples` container and the `sample-jobs` and `sample-jobs-poison` queues. Grant
+the developer identity the API's Blob and Queue roles, then follow
+[External ID setup](./docs/external-user-auth.md) for API settings. Run
+`python -m app.worker` in a second terminal.
+
+## AKS deployment
+
+The AKS configuration defaults to `deploy_platform = false`. Before enabling
+it, confirm the subscription, region and quotas, unique resource names,
+dedicated Entra admin group, trusted API-server CIDR, and expected cost. AKS
+uses a minimum two-node system pool and incurs charges while running; the
+optional GPU pool is disabled by default.
 
 ```bash
-az login
-export AZURE_STORAGE_ACCOUNT_URL="<your storage account blob endpoint>"
-export BLOB_CONTAINER_NAME="samples"
-export ENTRA_EXTERNAL_ID_ISSUER="https://09611948-7df4-4927-800d-f707197bab70.ciamlogin.com/09611948-7df4-4927-800d-f707197bab70/v2.0"
-export ENTRA_EXTERNAL_ID_JWKS_URL="https://pangolincustomers.ciamlogin.com/09611948-7df4-4927-800d-f707197bab70/discovery/v2.0/keys"
-export ENTRA_API_AUDIENCE="d0000cca-0900-4c3f-92cf-45e320e62112"
-export ENTRA_API_SCOPE="samples.write"
-uvicorn app.main:app --host 127.0.0.1 --port 8000
-```
-
-Create a tiny synthetic FASTQ file in the current directory, acquire an access token for the API, then send it with a timezone-aware observation time:
-
-```bash
-cat > reads.fastq <<'EOF'
-@demo-read
-ACGTACGT
-+
-!!!!!!!!
-EOF
-
-curl -X POST http://127.0.0.1:8000/samples \
-  -H "Authorization: Bearer $ACCESS_TOKEN" \
-  -F 'sample_id=2dbf85de-daa5-4e16-bdbe-c8ab11392400' \
-  -F 'site_code=boreal-7' \
-  -F 'observed_at=2026-10-25T10:30:00-04:00' \
-  -F 'file=@reads.fastq;type=application/octet-stream'
-```
-
-The `cat` command creates demo input only. If you have a real file elsewhere, use its path after `file=@` instead. The client supplies a UUID sample ID so retries target stable blob names instead of creating a new copy. Existing blob names are never overwritten; a retry after a completed upload receives a conflict response. The default upload limit is 100 MiB and can be changed with `MAX_UPLOAD_BYTES`. Files and metadata are written as private blobs under the authenticated user's hashed subject namespace. Treat uploaded biological/location data as sensitive; site/organization authorization, ownership-based reads, and data-retention controls are not yet implemented.
-
-When provisioned, the example Storage account configuration uses Standard LRS, requires HTTPS, disables Shared Key authorization and anonymous Blob access, and creates a private container. Data-plane access is controlled by Azure RBAC. These are configuration settings, not currently deployed resources.
-
-## Container
-
-Docker is required to build and run the image locally. The API listens on port 8000:
-
-```bash
-docker build -t field-data-api:local .
-docker run --rm -p 127.0.0.1:8000:8000 \
-  -e AZURE_STORAGE_ACCOUNT_URL \
-  -e BLOB_CONTAINER_NAME \
-  -e ENTRA_EXTERNAL_ID_ISSUER \
-  -e ENTRA_EXTERNAL_ID_JWKS_URL \
-  -e ENTRA_API_AUDIENCE \
-  -e ENTRA_API_SCOPE \
-  field-data-api:local
-```
-
-## Terraform
-
-The infrastructure is scoped to the subscription in `subscription_id`. `terraform.tfvars` is local and ignored by Git. The Storage account, container, and developer role assignment are defined in Terraform. `deploy_platform` and `deploy_api` default to `false`; setting `deploy_platform = true` adds ACR, a user-assigned identity, Log Analytics, and the Container Apps environment. The managed identity is granted `AcrPull` and Blob data access in the Terraform configuration. After provisioning and reviewing that foundation, build and push the image, provide the External ID issuer, JWKS URL, audience, and scope, and set `deploy_api = true` with `container_image` to create the Container App.
-
-Before future deployments, verify regional availability, review the Terraform plan and expected charges, and confirm the resources and access model. Blob capacity, transactions, and data transfer can incur charges; ACR, Log Analytics ingestion, and Container Apps can also incur charges.
-
-```bash
+cd infra/terraform/aks
+cp terraform.tfvars.example terraform.tfvars
+# Edit terraform.tfvars locally.
 terraform init
-terraform fmt -check -recursive
+terraform fmt -check
 terraform validate
 terraform plan
 ```
 
-When you clone this project and `terraform.tfvars` is absent, copy `terraform.tfvars.example` and fill in the subscription and unique names before planning or applying. Always inspect the full plan: an apply can create chargeable resources. The Container App is configured to use its user-assigned identity for `AcrPull` and Blob Storage data access. Storage Shared Key access and anonymous Blob access are disabled in the Terraform configuration. Terraform state can contain sensitive values; keep state private and never commit state or `terraform.tfvars`.
+Review the full plan before applying. Keep Terraform state, plans, credentials,
+and `terraform.tfvars` private. The release workflow is manual and requires a
+protected GitHub `aks-deploy` environment, Azure OIDC configuration, and a
+stable-egress self-hosted runner labeled `pangolin-aks`. Bootstrap the
+restricted `pangolin` namespace before deploying. Public access additionally
+requires a TLS-capable ingress controller and DNS; chart ingress is disabled
+by default.
 
-## Follow-up learning milestones
+## Verification
 
-1. Configure External ID app registrations and test OAuth 2.0 token acquisition from a Flutter PKCE client before exposing the API.
-2. Move long-running bioinformatics work to an asynchronous queue and Container Apps Jobs; compare with AKS for scheduling, GPU, and operational needs.
-3. Add CI security scanning and a separate OIDC-based deployment workflow after a GitHub repository and Azure environments are selected.
-4. Add dashboards, actionable alerts, retention controls, and a cost/scale review.
+Locally verified: unit tests, the Azurite-backed API → Blob → Queue → worker
+integration test, Docker Compose build and health/readiness checks, Ruff,
+Bandit, `pip-audit`, Terraform formatting and validation, Helm lint/render,
+workflow lint, and Pylance diagnostics. Azure deployment, Terraform plan/apply,
+and a GitHub Actions run have not been verified.
+
+See the [architecture diagram](./architecture.mmd), [tenant setup record](./docs/external-id-tenant-setup.md), and [remaining product and operational gaps](./docs/production-readiness-gap-register.md).

@@ -1,0 +1,82 @@
+services:
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite:3.37.0
+    command:
+      - azurite
+      - --blobHost
+      - 0.0.0.0
+      - --queueHost
+      - 0.0.0.0
+      - --location
+      - /data
+      - --skipApiVersionCheck
+    ports:
+      - "127.0.0.1:10000:10000"
+      - "127.0.0.1:10001:10001"
+    volumes:
+      - azurite-data:/data
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "const net = require('node:net'); const s = net.connect(10000, '127.0.0.1', () => { s.end(); process.exit(0); }); s.on('error', () => process.exit(1));"
+      interval: 2s
+      timeout: 2s
+      retries: 20
+      start_period: 2s
+
+  storage-init:
+    build: .
+    command: ["python", "-m", "app.local_storage_setup"]
+    environment: &pangolin-environment
+      PANGOLIN_STORAGE_MODE: azurite
+      AZURE_STORAGE_CONNECTION_STRING: DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;QueueEndpoint=http://azurite:10001/devstoreaccount1;
+      BLOB_CONTAINER_NAME: samples
+      SAMPLE_JOB_QUEUE_NAME: sample-jobs
+      SAMPLE_POISON_QUEUE_NAME: sample-jobs-poison
+      ENTRA_EXTERNAL_ID_TENANT_ID: 09611948-7df4-4927-800d-f707197bab70
+      ENTRA_EXTERNAL_ID_TENANT_DOMAIN: pangolincustomers
+      ENTRA_EXTERNAL_ID_USER_FLOW: fieldusersignin
+      ENTRA_EXTERNAL_ID_ISSUER: https://09611948-7df4-4927-800d-f707197bab70.ciamlogin.com/09611948-7df4-4927-800d-f707197bab70/v2.0
+      ENTRA_EXTERNAL_ID_JWKS_URL: https://pangolincustomers.ciamlogin.com/09611948-7df4-4927-800d-f707197bab70/discovery/v2.0/keys
+      ENTRA_API_AUDIENCE: d0000cca-0900-4c3f-92cf-45e320e62112
+      ENTRA_API_SCOPE: samples.write
+      ENTRA_ALLOWED_CLIENT_ID: 927109f8-f2d7-4e2d-94b2-eb26f3d02cba
+      ENTRA_PUBLIC_CLIENT_ID: 927109f8-f2d7-4e2d-94b2-eb26f3d02cba
+    depends_on:
+      azurite:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    build: .
+    environment:
+      <<: *pangolin-environment
+      PANGOLIN_DEMO_UI_ENABLED: "true"
+    ports:
+      - "127.0.0.1:8081:8000"
+    depends_on:
+      storage-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=2)"
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  worker:
+    build: .
+    command: ["python", "-m", "app.worker"]
+    environment: *pangolin-environment
+    depends_on:
+      storage-init:
+        condition: service_completed_successfully
+
+volumes:
+  azurite-data:

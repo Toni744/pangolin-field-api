@@ -1,5 +1,5 @@
 import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 import httpx
@@ -7,22 +7,23 @@ import jwt
 import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
 
-from app import main
-from app import auth
+from app import auth, main
 from app.storage import SampleReceipt
-
 
 ISSUER = "https://pangolin-test.ciamlogin.com/tenant-id/v2.0"
 JWKS_URL = f"{ISSUER}/discovery/v2.0/keys"
 AUDIENCE = "api-client-id"
 SCOPE = "samples.write"
 SUBJECT = "external-user-subject"
+MOBILE_CLIENT_ID = "927109f8-f2d7-4e2d-94b2-eb26f3d02cba"
 
 
 def request_app(method: str, path: str, **kwargs: object) -> httpx.Response:
     async def send_request() -> httpx.Response:
         transport = httpx.ASGITransport(app=main.app)
-        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        async with httpx.AsyncClient(
+            transport=transport, base_url="http://test"
+        ) as client:
             return await client.request(method, path, **kwargs)
 
     return asyncio.run(send_request())
@@ -42,6 +43,27 @@ class MemoryBlobStore:
             metadata_blob_name=f"users/test/samples/{sample_id}/metadata.json",
         )
 
+    def get_sample_status(
+        self,
+        submitted_by: str,
+        sample_id: UUID,
+    ) -> dict[str, object] | None:
+        for sample in self.saved:
+            if (
+                sample["sample_id"] == sample_id
+                and sample["submitted_by"] == submitted_by
+            ):
+                return {
+                    "sample_id": str(sample_id),
+                    "status": "queued",
+                    "qc": None,
+                    "error": None,
+                }
+        return None
+
+    def check_readiness(self) -> None:
+        return None
+
 
 @pytest.fixture
 def token_keys(monkeypatch: pytest.MonkeyPatch) -> tuple[object, object]:
@@ -51,6 +73,7 @@ def token_keys(monkeypatch: pytest.MonkeyPatch) -> tuple[object, object]:
     monkeypatch.setenv("ENTRA_EXTERNAL_ID_JWKS_URL", JWKS_URL)
     monkeypatch.setenv("ENTRA_API_AUDIENCE", AUDIENCE)
     monkeypatch.setenv("ENTRA_API_SCOPE", SCOPE)
+    monkeypatch.setenv("ENTRA_ALLOWED_CLIENT_ID", MOBILE_CLIENT_ID)
 
     class SigningKey:
         key = public_key
@@ -65,17 +88,20 @@ def token_keys(monkeypatch: pytest.MonkeyPatch) -> tuple[object, object]:
 
 
 def make_token(private_key: object, **overrides: object) -> str:
-    now = int(datetime.now(timezone.utc).timestamp())
+    now = int(datetime.now(UTC).timestamp())
     claims: dict[str, object] = {
         "iss": ISSUER,
         "aud": AUDIENCE,
         "sub": SUBJECT,
         "scp": SCOPE,
+        "azp": MOBILE_CLIENT_ID,
         "iat": now,
         "exp": now + 300,
     }
     claims.update(overrides)
-    return jwt.encode(claims, private_key, algorithm="RS256", headers={"kid": "test-key"})
+    return jwt.encode(
+        claims, private_key, algorithm="RS256", headers={"kid": "test-key"}
+    )
 
 
 def test_healthz_is_ready_without_azure_configuration() -> None:
@@ -83,6 +109,89 @@ def test_healthz_is_ready_without_azure_configuration() -> None:
 
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
+
+
+def test_demo_routes_are_disabled_by_default(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PANGOLIN_DEMO_UI_ENABLED", "false")
+
+    home_response = request_app("GET", "/")
+    config_response = request_app("GET", "/demo/config.json")
+
+    assert home_response.status_code == 404
+    assert config_response.status_code == 404
+
+
+def test_demo_config_uses_external_id_spa_settings(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PANGOLIN_DEMO_UI_ENABLED", "true")
+    monkeypatch.setenv("ENTRA_EXTERNAL_ID_TENANT_ID", "tenant-id")
+    monkeypatch.setenv("ENTRA_EXTERNAL_ID_TENANT_DOMAIN", "pangolincustomers")
+    monkeypatch.setenv("ENTRA_EXTERNAL_ID_USER_FLOW", "fieldusersignin")
+    monkeypatch.setenv("ENTRA_PUBLIC_CLIENT_ID", "spa-client-id")
+    monkeypatch.setenv("ENTRA_API_AUDIENCE", "api-client-id")
+    monkeypatch.setenv("ENTRA_API_SCOPE", SCOPE)
+
+    response = request_app("GET", "/demo/config.json")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "clientId": "spa-client-id",
+        "authority": "https://pangolincustomers.ciamlogin.com/",
+        "authorityMetadataUrl": (
+            "https://pangolincustomers.ciamlogin.com/tenant-id/v2.0/"
+            ".well-known/openid-configuration?p=fieldusersignin"
+        ),
+        "userFlow": "fieldusersignin",
+        "apiScope": "api://api-client-id/samples.write",
+    }
+
+
+def test_readyz_requires_storage_configuration() -> None:
+    response = request_app("GET", "/readyz")
+
+    assert response.status_code == 503
+
+
+def test_sample_status_is_limited_to_the_submitting_user(
+    token_keys: tuple[object, object],
+) -> None:
+    store = MemoryBlobStore()
+    main.app.dependency_overrides[main.get_blob_store] = lambda: store
+    sample_id = UUID("2dbf85de-daa5-4e16-bdbe-c8ab11392400")
+    try:
+        upload_response = request_app(
+            "POST",
+            "/samples",
+            headers={"Authorization": f"Bearer {make_token(token_keys[0])}"},
+            data={
+                "sample_id": str(sample_id),
+                "site_code": "boreal-7",
+                "observed_at": "2026-10-25T10:30:00-04:00",
+            },
+            files={"file": ("reads.fastq", b"ACGT", "application/octet-stream")},
+        )
+        status_response = request_app(
+            "GET",
+            f"/samples/{sample_id}/status",
+            headers={"Authorization": f"Bearer {make_token(token_keys[0])}"},
+        )
+        other_user_response = request_app(
+            "GET",
+            f"/samples/{sample_id}/status",
+            headers={
+                "Authorization": f"Bearer {make_token(token_keys[0], sub='another-user')}"
+            },
+        )
+    finally:
+        main.app.dependency_overrides.clear()
+
+    assert upload_response.status_code == 201
+    assert status_response.status_code == 200
+    assert status_response.json()["status"] == "queued"
+    assert other_user_response.status_code == 404
 
 
 def test_create_sample_uploads_to_storage_dependency(
@@ -110,7 +219,7 @@ def test_create_sample_uploads_to_storage_dependency(
     assert response.json()["data_blob_name"].endswith("/data/reads.fastq")
     assert len(store.saved) == 1
     assert store.saved[0]["site_code"] == "boreal-7"
-    assert store.saved[0]["observed_at"] == datetime(2026, 10, 25, 14, 30, tzinfo=timezone.utc)
+    assert store.saved[0]["observed_at"] == datetime(2026, 10, 25, 14, 30, tzinfo=UTC)
     assert store.saved[0]["submitted_by"] == SUBJECT
 
 
@@ -138,7 +247,9 @@ def test_create_sample_rejects_wrong_audience(
         response = request_app(
             "POST",
             "/samples",
-            headers={"Authorization": f"Bearer {make_token(token_keys[0], aud='other-api')}"},
+            headers={
+                "Authorization": f"Bearer {make_token(token_keys[0], aud='other-api')}"
+            },
             data={
                 "sample_id": "2dbf85de-daa5-4e16-bdbe-c8ab11392400",
                 "site_code": "boreal-7",
@@ -162,7 +273,9 @@ def test_create_sample_requires_upload_scope(
         response = request_app(
             "POST",
             "/samples",
-            headers={"Authorization": f"Bearer {make_token(token_keys[0], scp='profile.read')}"},
+            headers={
+                "Authorization": f"Bearer {make_token(token_keys[0], scp='profile.read')}"
+            },
             data={
                 "sample_id": "2dbf85de-daa5-4e16-bdbe-c8ab11392400",
                 "site_code": "boreal-7",
@@ -177,6 +290,61 @@ def test_create_sample_requires_upload_scope(
     assert store.saved == []
 
 
+def test_create_sample_rejects_unregistered_client(
+    token_keys: tuple[object, object],
+) -> None:
+    store = MemoryBlobStore()
+    token = make_token(token_keys[0], azp="another-mobile-app")
+    main.app.dependency_overrides[main.get_blob_store] = lambda: store
+    try:
+        response = request_app(
+            "POST",
+            "/samples",
+            headers={"Authorization": f"Bearer {token}"},
+            data={
+                "sample_id": "2dbf85de-daa5-4e16-bdbe-c8ab11392400",
+                "site_code": "boreal-7",
+                "observed_at": "2026-10-25T10:30:00-04:00",
+            },
+            files={"file": ("reads.fastq", b"ACGT", "application/octet-stream")},
+        )
+    finally:
+        main.app.dependency_overrides.clear()
+
+    assert response.status_code == 403
+    assert store.saved == []
+
+
+def test_create_sample_rejects_missing_authorized_client(
+    token_keys: tuple[object, object],
+) -> None:
+    private_key, _ = token_keys
+    claims = {
+        "iss": ISSUER,
+        "aud": AUDIENCE,
+        "sub": SUBJECT,
+        "scp": SCOPE,
+        "iat": int(datetime.now(UTC).timestamp()),
+        "exp": int(datetime.now(UTC).timestamp()) + 300,
+    }
+    token = jwt.encode(
+        claims, private_key, algorithm="RS256", headers={"kid": "test-key"}
+    )
+    response = request_app(
+        "POST",
+        "/samples",
+        headers={"Authorization": f"Bearer {token}"},
+        data={
+            "sample_id": "2dbf85de-daa5-4e16-bdbe-c8ab11392400",
+            "site_code": "boreal-7",
+            "observed_at": "2026-10-25T10:30:00-04:00",
+        },
+        files={"file": ("reads.fastq", b"ACGT", "application/octet-stream")},
+    )
+
+    assert response.status_code == 403
+
+
 def test_create_sample_fails_closed_when_auth_is_not_configured(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -184,6 +352,7 @@ def test_create_sample_fails_closed_when_auth_is_not_configured(
         "ENTRA_EXTERNAL_ID_ISSUER",
         "ENTRA_EXTERNAL_ID_JWKS_URL",
         "ENTRA_API_AUDIENCE",
+        "ENTRA_ALLOWED_CLIENT_ID",
     ):
         monkeypatch.delenv(name, raising=False)
 
@@ -226,7 +395,9 @@ def test_create_sample_rejects_timezone_naive_timestamp(
     assert store.saved == []
 
 
-def test_create_sample_rejects_blank_site_code(token_keys: tuple[object, object]) -> None:
+def test_create_sample_rejects_blank_site_code(
+    token_keys: tuple[object, object],
+) -> None:
     store = MemoryBlobStore()
     main.app.dependency_overrides[main.get_blob_store] = lambda: store
     try:

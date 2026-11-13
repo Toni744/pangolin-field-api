@@ -7,11 +7,13 @@ WORKDIR /app
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir --disable-pip-version-check -r requirements.txt \
-    && addgroup --system app \
-    && adduser --system --ingroup app app
+    && addgroup --gid 10001 app \
+    && adduser --disabled-password --gecos "" --home /nonexistent \
+       --no-create-home --uid 10001 --ingroup app app
 
 COPY app ./app
-USER app
+COPY demo ./demo
+USER 10001:10001
 
 EXPOSE 8000
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

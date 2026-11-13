@@ -1,0 +1,110 @@
+name: Deploy Pangolin to AKS
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, pangolin-aks]
+    environment: aks-deploy
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require deployment configuration
+        shell: bash
+        env:
+          AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          RESOURCE_GROUP_NAME: ${{ vars.AZURE_RESOURCE_GROUP }}
+          AKS_NAME: ${{ vars.AKS_NAME }}
+          ACR_NAME: ${{ vars.ACR_NAME }}
+          ACR_LOGIN_SERVER: ${{ vars.ACR_LOGIN_SERVER }}
+          STORAGE_ACCOUNT_URL: ${{ vars.STORAGE_ACCOUNT_URL }}
+          STORAGE_QUEUE_URL: ${{ vars.STORAGE_QUEUE_URL }}
+          API_IDENTITY_CLIENT_ID: ${{ vars.API_IDENTITY_CLIENT_ID }}
+          WORKER_IDENTITY_CLIENT_ID: ${{ vars.WORKER_IDENTITY_CLIENT_ID }}
+          BATCH_IDENTITY_CLIENT_ID: ${{ vars.BATCH_IDENTITY_CLIENT_ID }}
+        run: |
+          set -euo pipefail
+          : "${AZURE_CLIENT_ID:?Set the aks-deploy environment variable AZURE_CLIENT_ID}"
+          : "${AZURE_TENANT_ID:?Set the aks-deploy environment variable AZURE_TENANT_ID}"
+          : "${AZURE_SUBSCRIPTION_ID:?Set the aks-deploy environment variable AZURE_SUBSCRIPTION_ID}"
+          : "${RESOURCE_GROUP_NAME:?Set the aks-deploy environment variable AZURE_RESOURCE_GROUP}"
+          : "${AKS_NAME:?Set the aks-deploy environment variable AKS_NAME}"
+          : "${ACR_NAME:?Set the aks-deploy environment variable ACR_NAME}"
+          : "${ACR_LOGIN_SERVER:?Set the aks-deploy environment variable ACR_LOGIN_SERVER}"
+          : "${STORAGE_ACCOUNT_URL:?Set the aks-deploy environment variable STORAGE_ACCOUNT_URL}"
+          : "${STORAGE_QUEUE_URL:?Set the aks-deploy environment variable STORAGE_QUEUE_URL}"
+          : "${API_IDENTITY_CLIENT_ID:?Set the aks-deploy environment variable API_IDENTITY_CLIENT_ID}"
+          : "${WORKER_IDENTITY_CLIENT_ID:?Set the aks-deploy environment variable WORKER_IDENTITY_CLIENT_ID}"
+          : "${BATCH_IDENTITY_CLIENT_ID:?Set the aks-deploy environment variable BATCH_IDENTITY_CLIENT_ID}"
+      - name: Sign in to Azure with GitHub OIDC
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Install kubectl and kubelogin
+        env:
+          TOOL_DIR: ${{ runner.temp }}/aks-tools
+        run: |
+          set -euo pipefail
+          mkdir -p "$TOOL_DIR"
+          az aks install-cli \
+            --install-location "$TOOL_DIR/kubectl" \
+            --kubelogin-install-location "$TOOL_DIR/kubelogin"
+          echo "$TOOL_DIR" >> "$GITHUB_PATH"
+      - name: Build and push immutable API/worker image
+        shell: bash
+        env:
+          ACR_NAME: ${{ vars.ACR_NAME }}
+          ACR_LOGIN_SERVER: ${{ vars.ACR_LOGIN_SERVER }}
+        run: |
+          set -euo pipefail
+          az acr login --name "$ACR_NAME"
+          image="$ACR_LOGIN_SERVER/pangolin-field-api:$GITHUB_SHA"
+          docker build --pull --tag "$image" .
+          docker push "$image"
+      - name: Configure AKS access
+        shell: bash
+        env:
+          RESOURCE_GROUP_NAME: ${{ vars.AZURE_RESOURCE_GROUP }}
+          AKS_NAME: ${{ vars.AKS_NAME }}
+        run: |
+          set -euo pipefail
+          az aks get-credentials \
+            --resource-group "$RESOURCE_GROUP_NAME" \
+            --name "$AKS_NAME" \
+            --overwrite-existing
+          kubelogin convert-kubeconfig -l azurecli
+      - name: Deploy Helm release
+        shell: bash
+        env:
+          ACR_LOGIN_SERVER: ${{ vars.ACR_LOGIN_SERVER }}
+          STORAGE_ACCOUNT_URL: ${{ vars.STORAGE_ACCOUNT_URL }}
+          STORAGE_QUEUE_URL: ${{ vars.STORAGE_QUEUE_URL }}
+          API_IDENTITY_CLIENT_ID: ${{ vars.API_IDENTITY_CLIENT_ID }}
+          WORKER_IDENTITY_CLIENT_ID: ${{ vars.WORKER_IDENTITY_CLIENT_ID }}
+          BATCH_IDENTITY_CLIENT_ID: ${{ vars.BATCH_IDENTITY_CLIENT_ID }}
+        run: |
+          set -euo pipefail
+          kubectl get namespace pangolin >/dev/null
+          kubectl get namespace pangolin \
+            -o jsonpath='{.metadata.labels.pod-security\.kubernetes\.io/enforce}' \
+            | grep -qx restricted
+          helm upgrade --install pangolin deploy/helm/pangolin \
+            --namespace pangolin \
+            --atomic \
+            --wait \
+            --timeout 10m \
+            --set-string image.repository="$ACR_LOGIN_SERVER/pangolin-field-api" \
+            --set-string image.tag="$GITHUB_SHA" \
+            --set-string storage.accountUrl="$STORAGE_ACCOUNT_URL" \
+            --set-string storage.queueUrl="$STORAGE_QUEUE_URL" \
+            --set-string serviceAccount.apiClientId="$API_IDENTITY_CLIENT_ID" \
+            --set-string serviceAccount.workerClientId="$WORKER_IDENTITY_CLIENT_ID" \
+            --set-string serviceAccount.batchClientId="$BATCH_IDENTITY_CLIENT_ID"

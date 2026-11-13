@@ -1,60 +1,53 @@
 flowchart LR
-    subgraph Local["Local development"]
-        Researcher["Researcher / field operator"]
-        ExternalID["Microsoft Entra External ID<br/>API scope + email-OTP user flow;<br/>mobile app + callback registered"]
-        LocalAPI["FastAPI on localhost:8000"]
-        LocalCredential["Azure CLI credential"]
-        Terraform["Terraform CLI"]
-        ImagePublisher["Image build / push<br/>manual follow-up"]
-        Flutter["Flutter field app<br/>planned; flutter_appauth selected;<br/>app-side callback not implemented"]
-    end
+    User["Field researcher"]
+    ExternalID["Microsoft Entra External ID<br/>email OTP; API access token"]
+    Mobile["Flutter client<br/>planned; not in repository"]
+    API["FastAPI API<br/>token validation; upload/status"]
+    Worker["Queue worker<br/>FASTQ QC; retry/poison handling"]
+    Blob["Private Blob Storage<br/>sample, metadata, QC result"]
+    Queue["Azure Storage Queue<br/>sample-jobs + poison queue"]
+    ACR["Azure Container Registry<br/>admin disabled"]
+    AKS["Azure Kubernetes Service<br/>API + worker"]
+    Monitor["Log Analytics / Container Insights"]
+    Terraform["Terraform AKS foundation<br/>opt-in; not applied"]
+    Repo["GitHub repository"]
+    CI["GitHub Actions CI<br/>tests, scans, build, IaC checks"]
+    Deploy["Manual release workflow<br/>Azure OIDC + protected environment"]
+    Runner["Self-hosted runner<br/>stable egress; pangolin-aks label"]
+    GPU["Optional GPU batch hook<br/>no scientific image supplied"]
+    Local["Local development<br/>FastAPI + Azure CLI credential"]
 
-    subgraph Azure["Azure subscription"]
-        subgraph AppPlane["Application plane"]
-            ACA["Azure Container Apps environment<br/>planned"]
-            API["Field Data API<br/>internal ingress only<br/>planned; deploy_api=false"]
-            AppIdentity["User-assigned managed identity<br/>planned"]
-            ACR["Azure Container Registry<br/>admin disabled<br/>planned"]
-            Storage["Blob Storage account<br/>planned; not deployed"]
-            Container["samples container<br/>planned; private access"]
-            Logs["Log Analytics workspace<br/>planned"]
-        end
-
-        subgraph ControlPlane["Infrastructure control plane"]
-            RG["Project resource group<br/>not deployed"]
-            TerraformAzure["Terraform-managed resources"]
-        end
-    end
-
-    GitHub["GitHub Actions CI<br/>tests, image build, Terraform validate<br/>workflow not run yet"]
-
-    Researcher --> Flutter
-    Flutter -.->|"Authorization Code + PKCE"| ExternalID
-    Flutter -.->|"Bearer access token<br/>samples.write"| LocalAPI
-    Researcher -->|"local development only"| LocalAPI
-    ExternalID -.->|"OIDC issuer, JWKS,<br/>audience and scope"| LocalAPI
-    API -.->|"retrieve signing keys from JWKS<br/>(cached; validate token locally)"| ExternalID
-    Flutter -.->|"Bearer access token<br/>samples.write"| API
-    LocalAPI -->|"DefaultAzureCredential"| LocalCredential
-    LocalCredential -->|"Entra ID token"| Storage
-    Storage --> Container
-    Terraform -->|"Azure CLI auth"| TerraformAzure
-    TerraformAzure --> RG
-    RG --> Storage
-    RG -.-> ACA
-    RG -.-> AppIdentity
-    RG -.-> ACR
-    RG -.-> Logs
-
-    ImagePublisher -.->|"push tagged image (future step)"| ACR
-    ACR -->|"pull tagged image (after deploy_api=true)"| API
-    AppIdentity -.->|"AcrPull"| ACR
-    ACA --> API
-    API -->|"Managed identity + Blob Data Contributor"| Storage
-    ACA -->|"Application logs"| Logs
-
-    GitHub -.->|"CI only — no Azure authentication or deploy"| TerraformAzure
+    User --> Mobile
+    Mobile -.->|"Authorization Code + PKCE"| ExternalID
+    Mobile -.->|"Bearer access token"| API
+    ExternalID -->|"OIDC issuer/JWKS"| API
+    API -->|"Managed identity: blob access"| Blob
+    API -->|"Managed identity: queue send"| Queue
+    Queue --> Worker
+    Worker -->|"Managed identity: blob + queue processing"| Blob
+    Worker -->|"acknowledge or poison"| Queue
+    AKS --> API
+    AKS --> Worker
+    AKS --> Monitor
+    ACR -->|"image pull"| AKS
+    Terraform -.->|"provisions when explicitly enabled"| AKS
+    Terraform -.-> Blob
+    Terraform -.-> Queue
+    Terraform -.-> ACR
+    Terraform -.-> Monitor
+    Terraform -.->|"OIDC workload identities"| API
+    Terraform -.->|"OIDC workload identities"| Worker
+    Terraform -.-> GPU
+    Repo --> CI
+    Repo --> Deploy
+    Deploy --> Runner
+    Runner -->|"Azure OIDC; build/push + Helm upgrade"| ACR
+    Runner -->|"kubelogin + Helm"| AKS
+    Local --> API
+    Local -->|"DefaultAzureCredential"| Blob
+    Local -->|"DefaultAzureCredential"| Queue
 
     classDef planned stroke-dasharray: 5 5;
-    classDef deployed fill:#dff3e4,stroke:#27864b,stroke-width:2px;
-    class ACA,API,AppIdentity,ACR,Logs,RG,Storage,Container planned;
+    classDef notDeployed fill:#fff3cd,stroke:#b88a00,stroke-width:2px;
+    class Mobile,GPU planned;
+    class AKS,Blob,Queue,ACR,Monitor,Terraform,Deploy,Runner notDeployed;

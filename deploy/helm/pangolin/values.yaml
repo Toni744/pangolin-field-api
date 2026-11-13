@@ -1,0 +1,103 @@
+image:
+  repository: ""
+  tag: ""
+  pullPolicy: IfNotPresent
+  pullSecrets: []
+
+auth:
+  issuer: https://09611948-7df4-4927-800d-f707197bab70.ciamlogin.com/09611948-7df4-4927-800d-f707197bab70/v2.0
+  jwksUrl: https://pangolincustomers.ciamlogin.com/09611948-7df4-4927-800d-f707197bab70/discovery/v2.0/keys
+  audience: d0000cca-0900-4c3f-92cf-45e320e62112
+  scope: samples.write
+  allowedClientId: 927109f8-f2d7-4e2d-94b2-eb26f3d02cba
+
+storage:
+  accountUrl: ""
+  queueUrl: ""
+  containerName: samples
+  jobQueueName: sample-jobs
+  poisonQueueName: sample-jobs-poison
+
+serviceAccount:
+  apiName: pangolin-api
+  apiClientId: ""
+  workerName: pangolin-worker
+  workerClientId: ""
+  batchName: pangolin-batch
+  batchClientId: ""
+
+api:
+  replicas: 2
+  maxUploadBytes: 104857600
+  logLevel: INFO
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 512Mi
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 70
+
+worker:
+  replicas: 1
+  maxDequeueCount: 5
+  pollIntervalSeconds: 3
+  logLevel: INFO
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "2"
+      memory: 2Gi
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  fsGroup: 10001
+  seccompProfile:
+    type: RuntimeDefault
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+service:
+  type: ClusterIP
+  port: 8000
+
+ingress:
+  enabled: false
+  className: nginx
+  host: ""
+  tlsSecretName: ""
+
+networkPolicy:
+  enabled: true
+  ingressNamespace: ingress-nginx
+  monitoringNamespace: monitoring
+
+gpuBatch:
+  enabled: false
+  runId: ""
+  image: ""
+  command: []
+  args: []
+  resources:
+    requests:
+      cpu: "2"
+      memory: 4Gi
+      nvidia.com/gpu: "1"
+    limits:
+      cpu: "4"
+      memory: 8Gi
+      nvidia.com/gpu: "1"

@@ -1,0 +1,14 @@
+{{- if and (not .Values.api.autoscaling.enabled) (gt (int .Values.api.replicas) 1) }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "pangolin.name" . }}-api
+  labels:
+    {{- include "pangolin.labels" . | nindent 4 }}
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      {{- include "pangolin.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: api
+{{- end }}

@@ -1,6 +1,6 @@
 output "resource_group_name" {
   description = "Resource group containing the demo resources."
-  value       = azurerm_resource_group.demo.name
+  value       = var.deploy_platform ? azurerm_resource_group.demo[0].name : null
 }
 
 output "container_registry_login_server" {
@@ -10,7 +10,7 @@ output "container_registry_login_server" {
 
 output "storage_account_name" {
   description = "Storage account holding private sample objects."
-  value       = azurerm_storage_account.samples.name
+  value       = var.deploy_platform ? azurerm_storage_account.samples[0].name : null
 }
 
 output "container_app_fqdn" {

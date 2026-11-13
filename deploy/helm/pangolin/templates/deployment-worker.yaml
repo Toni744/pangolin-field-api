@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "pangolin.name" . }}-worker
+  labels:
+    {{- include "pangolin.labels" . | nindent 4 }}
+    app.kubernetes.io/component: worker
+spec:
+  replicas: {{ .Values.worker.replicas }}
+  selector:
+    matchLabels:
+      {{- include "pangolin.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: worker
+  template:
+    metadata:
+      labels:
+        {{- include "pangolin.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: worker
+        azure.workload.identity/use: "true"
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: /
+        prometheus.io/port: "8001"
+    spec:
+      serviceAccountName: {{ .Values.serviceAccount.workerName }}
+      automountServiceAccountToken: true
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- with .Values.image.pullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: worker
+          image: {{ include "pangolin.image" . | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["python", "-m", "app.worker"]
+          ports:
+            - name: metrics
+              containerPort: 8001
+              protocol: TCP
+          env:
+            - name: AZURE_STORAGE_ACCOUNT_URL
+              value: {{ required "storage.accountUrl is required" .Values.storage.accountUrl | quote }}
+            - name: AZURE_STORAGE_QUEUE_URL
+              value: {{ required "storage.queueUrl is required" .Values.storage.queueUrl | quote }}
+            - name: BLOB_CONTAINER_NAME
+              value: {{ .Values.storage.containerName | quote }}
+            - name: SAMPLE_JOB_QUEUE_NAME
+              value: {{ .Values.storage.jobQueueName | quote }}
+            - name: SAMPLE_POISON_QUEUE_NAME
+              value: {{ .Values.storage.poisonQueueName | quote }}
+            - name: MAX_DEQUEUE_COUNT
+              value: {{ .Values.worker.maxDequeueCount | quote }}
+            - name: QUEUE_POLL_INTERVAL_SECONDS
+              value: {{ .Values.worker.pollIntervalSeconds | quote }}
+            - name: LOG_LEVEL
+              value: {{ .Values.worker.logLevel | quote }}
+          resources:
+            {{- toYaml .Values.worker.resources | nindent 12 }}
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}

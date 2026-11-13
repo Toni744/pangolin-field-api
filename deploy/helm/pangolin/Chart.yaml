@@ -1,0 +1,6 @@
+apiVersion: v2
+name: pangolin
+description: Pangolin field-data API and asynchronous FASTQ quality-control worker
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

@@ -18,10 +18,14 @@ jobs:
           cache: pip
       - name: Install test dependencies
         run: python -m pip install -r requirements-dev.txt
+      - name: Lint Python
+        run: ruff check app tests
+      - name: Check Python formatting
+        run: ruff format --check app tests
       - name: Run tests
         run: pytest -q
       - name: Build container image
-        run: docker build --tag field-data-api:test .
+        run: docker build --tag pangolin-field-api:test .
 
   terraform:
     runs-on: ubuntu-latest
@@ -30,7 +34,66 @@ jobs:
       - uses: hashicorp/setup-terraform@v3
       - name: Check formatting
         run: terraform fmt -check -recursive
-      - name: Initialize providers
+      - name: Initialize root Terraform configuration
         run: terraform init -backend=false -input=false
-      - name: Validate configuration
+      - name: Validate root Terraform configuration
         run: terraform validate
+      - name: Initialize AKS Terraform configuration
+        working-directory: infra/terraform/aks
+        run: terraform init -backend=false -input=false
+      - name: Validate AKS Terraform configuration
+        working-directory: infra/terraform/aks
+        run: terraform validate
+
+  helm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+      - name: Lint Helm chart
+        run: |
+          helm lint deploy/helm/pangolin \
+            --set image.repository=example.azurecr.io/pangolin-field-api \
+            --set image.tag=ci \
+            --set serviceAccount.apiClientId=00000000-0000-0000-0000-000000000001 \
+            --set serviceAccount.workerClientId=00000000-0000-0000-0000-000000000002 \
+            --set serviceAccount.batchClientId=00000000-0000-0000-0000-000000000003 \
+            --set storage.accountUrl=https://example.blob.core.windows.net \
+            --set storage.queueUrl=https://example.queue.core.windows.net
+      - name: Render Helm chart
+        run: |
+          helm template pangolin deploy/helm/pangolin \
+            --namespace pangolin \
+            --set image.repository=example.azurecr.io/pangolin-field-api \
+            --set image.tag=ci \
+            --set serviceAccount.apiClientId=00000000-0000-0000-0000-000000000001 \
+            --set serviceAccount.workerClientId=00000000-0000-0000-0000-000000000002 \
+            --set serviceAccount.batchClientId=00000000-0000-0000-0000-000000000003 \
+            --set storage.accountUrl=https://example.blob.core.windows.net \
+            --set storage.queueUrl=https://example.queue.core.windows.net
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install security tools
+        run: python -m pip install -r requirements-dev.txt
+      - name: Audit Python dependencies
+        run: pip-audit -r requirements-dev.txt
+      - name: Scan Python source
+        run: bandit -q -r app
+      - name: Scan repository for secrets and vulnerable components
+        uses: gitleaks/gitleaks-action@v2
+      - name: Scan files and Terraform configuration
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret,misconfig
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"

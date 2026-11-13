@@ -18,10 +18,14 @@ variable "resource_group_name" {
 variable "storage_account_name" {
   description = "Globally unique, lowercase alphanumeric Azure Storage account name."
   type        = string
+  default     = ""
 
   validation {
-    condition     = can(regex("^[a-z0-9]{3,24}$", var.storage_account_name))
-    error_message = "The storage account name must be 3-24 lowercase letters or digits."
+    condition = !var.deploy_platform || can(regex(
+      "^[a-z0-9]{3,24}$",
+      var.storage_account_name
+    ))
+    error_message = "When deploy_platform is enabled, the Storage account name must be 3-24 lowercase letters or digits."
   }
 }
 
@@ -54,20 +58,25 @@ variable "container_image" {
 }
 
 variable "deploy_api" {
-  description = "Create the Container App after its image has been pushed to ACR."
+  description = "Deprecated Container Apps deployment switch; this legacy API path is disabled."
   type        = bool
   default     = false
 
   validation {
-    condition     = !var.deploy_api || var.deploy_platform
-    error_message = "deploy_platform must be true when deploy_api is true."
+    condition     = !var.deploy_api
+    error_message = "The legacy Container Apps API path is retired; deploy with infra/terraform/aks and Helm."
   }
 }
 
 variable "deploy_platform" {
-  description = "Create ACR, managed identity, monitoring, and Container Apps infrastructure."
+  description = "Deprecated Container Apps foundation switch; use the supported AKS configuration instead."
   type        = bool
   default     = false
+
+  validation {
+    condition     = !var.deploy_platform
+    error_message = "The legacy Container Apps stack is retired; use infra/terraform/aks."
+  }
 }
 
 variable "entra_external_id_issuer" {

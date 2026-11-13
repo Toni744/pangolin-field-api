@@ -1,0 +1,86 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "pangolin.name" . }}-api
+  labels:
+    {{- include "pangolin.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  replicas: {{ .Values.api.replicas }}
+  selector:
+    matchLabels:
+      {{- include "pangolin.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: api
+  template:
+    metadata:
+      labels:
+        {{- include "pangolin.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: api
+        azure.workload.identity/use: "true"
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: /metrics
+        prometheus.io/port: "8000"
+    spec:
+      serviceAccountName: {{ .Values.serviceAccount.apiName }}
+      automountServiceAccountToken: true
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- with .Values.image.pullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: api
+          image: {{ include "pangolin.image" . | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+          env:
+            - name: AZURE_STORAGE_ACCOUNT_URL
+              value: {{ required "storage.accountUrl is required" .Values.storage.accountUrl | quote }}
+            - name: AZURE_STORAGE_QUEUE_URL
+              value: {{ required "storage.queueUrl is required" .Values.storage.queueUrl | quote }}
+            - name: BLOB_CONTAINER_NAME
+              value: {{ .Values.storage.containerName | quote }}
+            - name: SAMPLE_JOB_QUEUE_NAME
+              value: {{ .Values.storage.jobQueueName | quote }}
+            - name: ENTRA_EXTERNAL_ID_ISSUER
+              value: {{ .Values.auth.issuer | quote }}
+            - name: ENTRA_EXTERNAL_ID_JWKS_URL
+              value: {{ .Values.auth.jwksUrl | quote }}
+            - name: ENTRA_API_AUDIENCE
+              value: {{ .Values.auth.audience | quote }}
+            - name: ENTRA_API_SCOPE
+              value: {{ .Values.auth.scope | quote }}
+            - name: ENTRA_ALLOWED_CLIENT_ID
+              value: {{ .Values.auth.allowedClientId | quote }}
+            - name: MAX_UPLOAD_BYTES
+              value: {{ .Values.api.maxUploadBytes | quote }}
+            - name: LOG_LEVEL
+              value: {{ .Values.api.logLevel | quote }}
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.api.resources | nindent 12 }}
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 128Mi
