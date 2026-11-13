@@ -87,7 +87,7 @@ jobs:
       - name: Scan repository for secrets and vulnerable components
         uses: gitleaks/gitleaks-action@v2
       - name: Scan files and Terraform configuration
-        uses: aquasecurity/trivy-action@v0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: fs
           scan-ref: .
