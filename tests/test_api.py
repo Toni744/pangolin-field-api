@@ -160,22 +160,22 @@ def test_healthz_is_ready_without_azure_configuration() -> None:
     assert response.json() == {"status": "ok"}
 
 
-def test_demo_routes_are_disabled_by_default(
+def test_web_routes_are_disabled_by_default(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("PANGOLIN_DEMO_UI_ENABLED", "false")
+    monkeypatch.setenv("PANGOLIN_WEB_UI_ENABLED", "false")
 
     home_response = request_app("GET", "/")
-    config_response = request_app("GET", "/demo/config.json")
+    config_response = request_app("GET", "/config.json")
 
     assert home_response.status_code == 404
     assert config_response.status_code == 404
 
 
-def test_demo_config_uses_external_id_spa_settings(
+def test_web_config_uses_external_id_spa_settings(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("PANGOLIN_DEMO_UI_ENABLED", "true")
+    monkeypatch.setenv("PANGOLIN_WEB_UI_ENABLED", "true")
     monkeypatch.setenv("ENTRA_EXTERNAL_ID_TENANT_ID", "tenant-id")
     monkeypatch.setenv("ENTRA_EXTERNAL_ID_TENANT_DOMAIN", "pangolincustomers")
     monkeypatch.setenv("ENTRA_EXTERNAL_ID_USER_FLOW", "fieldusersignin")
@@ -183,7 +183,7 @@ def test_demo_config_uses_external_id_spa_settings(
     monkeypatch.setenv("ENTRA_API_AUDIENCE", "api-client-id")
     monkeypatch.setenv("ENTRA_API_SCOPE", SCOPE)
 
-    response = request_app("GET", "/demo/config.json")
+    response = request_app("GET", "/config.json")
 
     assert response.status_code == 200
     assert response.json() == {

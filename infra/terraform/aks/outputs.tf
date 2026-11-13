@@ -39,6 +39,6 @@ output "github_deploy_identity_client_id" {
 }
 
 output "github_cleanup_identity_client_id" {
-  description = "Client ID for the resource-group-scoped demo cleanup identity."
-  value       = var.deploy_platform && var.enable_demo_cleanup ? azurerm_user_assigned_identity.cleanup[0].client_id : null
+  description = "Client ID for the resource-group-scoped cleanup identity."
+  value       = var.deploy_platform && var.enable_scheduled_cleanup ? azurerm_user_assigned_identity.cleanup[0].client_id : null
 }

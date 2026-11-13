@@ -5,7 +5,7 @@ locals {
     managed_by  = "terraform"
   }
   enabled                  = var.deploy_platform ? 1 : 0
-  cleanup_enabled          = var.deploy_platform && var.enable_demo_cleanup ? 1 : 0
+  cleanup_enabled          = var.deploy_platform && var.enable_scheduled_cleanup ? 1 : 0
   github_oidc_repo_subject = var.github_oidc_repository != "" ? var.github_oidc_repository : var.github_repository
 }
 

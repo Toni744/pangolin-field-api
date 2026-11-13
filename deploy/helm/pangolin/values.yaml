@@ -11,7 +11,7 @@ auth:
   scope: samples.write
   allowedClientId: 927109f8-f2d7-4e2d-94b2-eb26f3d02cba
 
-demo:
+webApp:
   enabled: false
   tenantId: ""
   tenantDomain: ""

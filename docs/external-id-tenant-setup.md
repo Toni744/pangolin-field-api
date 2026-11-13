@@ -12,7 +12,7 @@ URLs in this file.
 | Tenant ID | `09611948-7df4-4927-800d-f707197bab70` |
 | API client ID and token audience | `d0000cca-0900-4c3f-92cf-45e320e62112` |
 | API delegated scope | `samples.write` |
-| Public client ID (native app and local demo) | `927109f8-f2d7-4e2d-94b2-eb26f3d02cba` |
+| Public client ID (native app and local browser app) | `927109f8-f2d7-4e2d-94b2-eb26f3d02cba` |
 | User flow | `fieldusersignin` (email one-time passcode) |
 | Redirect URIs | Native: `com.pangolinapp://oauthredirect`; local SPA: `http://localhost:8081/` (register as Single-page application) |
 

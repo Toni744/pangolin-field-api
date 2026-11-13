@@ -21,14 +21,14 @@ variable "deploy_platform" {
   default     = false
 }
 
-variable "enable_demo_cleanup" {
-  description = "Create a resource-group-scoped GitHub OIDC identity for demo cleanup."
+variable "enable_scheduled_cleanup" {
+  description = "Create a resource-group-scoped GitHub OIDC identity for scheduled cleanup."
   type        = bool
   default     = false
 
   validation {
-    condition     = !var.enable_demo_cleanup || var.deploy_platform
-    error_message = "deploy_platform must be true when demo cleanup is enabled."
+    condition     = !var.enable_scheduled_cleanup || var.deploy_platform
+    error_message = "deploy_platform must be true when scheduled cleanup is enabled."
   }
 }
 

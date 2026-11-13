@@ -22,12 +22,12 @@ const sampleList = document.querySelector("#sample-list");
 const libraryEmpty = document.querySelector("#library-empty");
 const refreshSamplesButton = document.querySelector("#refresh-samples");
 
-const syntheticFastq = [
-  "@PANGOLIN-DEMO-1",
+const exampleFastq = [
+  "@EXAMPLE-1",
   "ACGTACGT",
   "+",
   "IIIIIIII",
-  "@PANGOLIN-DEMO-2",
+  "@EXAMPLE-2",
   "TTGCAAAA",
   "+",
   "HHHHHHHH",
@@ -254,10 +254,10 @@ async function refreshSamples() {
 
 async function initialize() {
   try {
-    const configResponse = await fetch("/demo/config.json");
+    const configResponse = await fetch("/config.json");
     configuration = await configResponse.json();
     if (!configResponse.ok) {
-      throw new Error(configuration.detail || "The demo sign-in configuration is unavailable.");
+      throw new Error(configuration.detail || "The sign-in configuration is unavailable.");
     }
     if (!window.msal) {
       throw new Error("The Microsoft sign-in library did not load. Check the browser's network connection.");
@@ -289,7 +289,7 @@ async function initialize() {
       await refreshSamples();
     }
   } catch (error) {
-    showMessage(error.message || "The demo could not be initialized.");
+    showMessage(error.message || "The application could not be initialized.");
   }
 }
 
@@ -352,7 +352,7 @@ fileInput.addEventListener("change", () => {
 });
 
 sampleButton.addEventListener("click", () => {
-  activeFile = new File([syntheticFastq], "pangolin-demo.fastq", { type: "text/plain" });
+  activeFile = new File([exampleFastq], "example.fastq", { type: "text/plain" });
   fileName.textContent = activeFile.name;
   clearMessage();
 });
@@ -361,7 +361,7 @@ uploadForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   clearMessage();
   if (!activeFile) {
-    showMessage("Choose a FASTQ file or load the synthetic demo sample.");
+    showMessage("Choose a FASTQ file or use the example FASTQ.");
     return;
   }
   setBusy(true);

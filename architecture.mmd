@@ -4,7 +4,7 @@ flowchart LR
     DNS["Azure public DNS<br/>canadacentral.cloudapp.azure.com"]
     LB["Azure Standard Load Balancer<br/>public IP; ports 80 and 443"]
 
-    subgraph RG["Azure subscription · rg-pangolin-aks-interview · Canada Central"]
+    subgraph RG["Azure resource group · Canada Central"]
         subgraph AKS["AKS · Azure CNI overlay · two CPU nodes"]
             Proxy["Caddy proxy · 1 replica<br/>HTTPS / Let's Encrypt; ephemeral certificate storage"]
             Service["API ClusterIP service<br/>port 8000"]

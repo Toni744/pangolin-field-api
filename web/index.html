@@ -4,16 +4,16 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#101b1a">
-    <meta name="description" content="A secure field-data intake and FASTQ quality-control demo.">
+    <meta name="description" content="Secure field-data intake and FASTQ quality control.">
     <title>Pangolin Field Lab</title>
-    <link rel="stylesheet" href="/demo/assets/styles.css">
+    <link rel="stylesheet" href="/assets/styles.css">
     <script
       defer
       src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@5.29.1/lib/msal-browser.min.js"
       integrity="sha384-xHJFgyahKVuzavO75uNT6xBc9ileK2xOlllrnVhB+g4a61bPC6HJBLzxM/iX4/N0"
       crossorigin="anonymous"
     ></script>
-    <script defer src="/demo/assets/app.js"></script>
+    <script defer src="/assets/app.js"></script>
   </head>
   <body>
     <div class="page-shell">
@@ -103,8 +103,8 @@
                   <input id="sample-file" name="file" type="file" accept=".fastq,.fq,text/plain">
                   <span class="file-icon" aria-hidden="true">↑</span>
                   <strong id="file-name">Choose a FASTQ file</strong>
-                  <small>Plain-text .fastq or .fq · keep demo data synthetic</small>
-                  <button class="sample-link" id="sample-button" type="button">Use a synthetic demo sample</button>
+                  <small>Plain-text .fastq or .fq · no patient or location data</small>
+                  <button class="sample-link" id="sample-button" type="button">Use an example FASTQ</button>
                 </div>
 
                 <button class="primary-button submit-button" id="upload-button" type="submit">

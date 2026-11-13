@@ -2,7 +2,7 @@
 
 ## Project summary
 
-Pangolin demonstrates an authenticated field-data intake pipeline. A browser
+Pangolin provides an authenticated field-data intake pipeline. A browser
 user signs in with Microsoft Entra External ID, submits a FASTQ file through a
 FastAPI API, and sees its processing status and basic quality-control results.
 The API stores the file in Blob Storage and queues a job; a separate worker
@@ -12,9 +12,9 @@ The repository also includes a Helm chart for AKS, an opt-in Terraform
 foundation, workload-identity configuration, and GitHub Actions CI and manual
 OIDC deployment workflows.
 
-## Run the local demo
+## Run locally
 
-The demo requires Docker with Compose, a browser, and internet access for
+Running locally requires Docker with Compose, a browser, and internet access for
 External ID sign-in and the MSAL Browser library. It does not deploy Azure
 compute or use Azure Blob/Queue Storage: those services are emulated locally by
 Azurite. Sign-in still uses the configured External ID tenant; check the
@@ -34,7 +34,7 @@ Open [http://localhost:8081](http://localhost:8081), choose **Continue with
 email**, then sign in with an account allowed by the Pangolin External ID user
 flow. The app registration has `http://localhost:8081/` registered as a
 Single-page application redirect URI; if that registration changes, set the
-new exact callback URI in the tenant before sign-in. Select **Use a synthetic demo sample** and choose **Upload & queue analysis**.
+new exact callback URI in the tenant before sign-in. Select **Use an example FASTQ** and choose **Upload & queue analysis**.
 The page displays the sample's progress through storage, queue, and worker
 processing, followed by its QC metrics. After processing, the **Sample library**
 shows the signed-in user's submitted samples and provides downloads for that
@@ -96,7 +96,7 @@ Helm chart. Do not upload real patient or location data.
 ## Repository map
 
 - `app/` — API, authentication, Blob/Queue storage, FASTQ QC, and worker.
-- `demo/` — browser sign-in, upload, progress, and results interface.
+- `web/` — browser sign-in, upload, progress, and results interface.
 - `tests/` — API, storage, worker, QC, and opt-in Azurite integration tests.
 - `deploy/helm/pangolin/` — Kubernetes workloads and deployment configuration.
 - `infra/terraform/aks/` — opt-in AKS and supporting Azure infrastructure.

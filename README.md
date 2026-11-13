@@ -10,14 +10,13 @@ For additional architecture and deployment details, see the
 
 ## Hosted walkthrough
 
-Open the [Pangolin Field Lab](https://pangolin-interview-350bd3ae.canadacentral.cloudapp.azure.com/)
+Open the [Pangolin Field Lab](https://pangolin-field-350bd3ae.canadacentral.cloudapp.azure.com/)
 in a browser. No local installation is required.
 
 1. Select **Continue with email**. Sign in, or select **No account? Create
    one** and follow the registration prompts.
 2. In **Sample intake**, keep or edit the `calgary-sw` site code. Select
-   **Use a synthetic demo sample**, or choose a plain-text `.fastq` or `.fq`
-   file containing synthetic data.
+   **Use an example FASTQ**, or choose a plain-text `.fastq` or `.fq` file.
 3. Select **Upload & queue analysis**. Watch **Processing status** as the file
    is saved, queued, and processed.
 4. Once processing is complete, review the QC metrics. In **Sample library**,
@@ -25,7 +24,7 @@ in a browser. No local installation is required.
    The library and downloads are scoped to the signed-in user.
 5. Select **Sign out** when finished.
 
-Use synthetic data only; do not upload real patient or location data. The
+Do not upload real patient or location data. The
 site code is descriptive and does not grant access. The hosted instance is
 scheduled for cleanup on **November 15, 2026 at 6 p.m. MST**; uploaded data
 will be deleted. Cleanup can be delayed or missed.
@@ -48,9 +47,7 @@ The Flutter client, site/organization authorization, operational dashboards
 and alerts, remote Terraform state, and a scientifically validated
 bioinformatics pipeline are not implemented. Public HTTPS is provided by a
 separately configured proxy; it is not installed by the Helm chart. Processing
-uses CPU only. The
-root Container Apps Terraform is retired; use only
-[`infra/terraform/aks`](./infra/terraform/aks) and
+uses CPU only. Deploy with [`infra/terraform/aks`](./infra/terraform/aks) and
 [`deploy/helm/pangolin`](./deploy/helm/pangolin).
 
 ## Local development
@@ -64,7 +61,7 @@ python -m pip install -r requirements-dev.txt
 python -m pytest -q
 ```
 
-## Local browser application
+### Run with Docker Compose
 
 Docker Compose runs the API, worker, and Azurite Blob/Queue emulator; it does
 not provision Azure compute or Storage resources. Browser sign-in still uses
@@ -84,12 +81,12 @@ docker compose ps
 ```
 
 Open [http://localhost:8081](http://localhost:8081), sign in with email, then
-choose **Use a synthetic demo sample** or select a small plain-text `.fastq`
+choose **Use an example FASTQ** or select a small plain-text `.fastq`
 file. The page shows the upload, queue, worker, and QC result. Watch worker
 logs with `docker compose logs -f worker`.
 
 All Blob and Queue data stays in the local `azurite-data` volume. Stop the
-services with `docker compose down`; remove the demo data as well with
+services with `docker compose down`; remove the local data as well with
 `docker compose down -v`. Do not upload real patient or location data.
 
 The emulator-backed API → Blob → Queue → worker test can also be run with
@@ -102,7 +99,7 @@ uvicorn app.main:app --host 127.0.0.1 --port 8000
 curl http://127.0.0.1:8000/healthz
 ```
 
-For Azure-backed development outside the local demo, provision a private
+For Azure-backed development outside Docker Compose, provision a private
 `samples` container and the `sample-jobs` and `sample-jobs-poison` queues. Grant
 the developer identity the API's Blob and Queue roles, then follow
 [External ID setup](./docs/external-user-auth.md) for API settings. Run
@@ -136,20 +133,20 @@ by default.
 If GitHub's OIDC token subject uses immutable owner and repository IDs, set
 `github_oidc_repository` to the exact `owner@ID/repository@ID` subject value.
 
-The browser demo is also disabled by default in Helm. To enable it, set
-`demo.enabled=true` and provide `demo.tenantId`, `demo.tenantDomain`,
-`demo.userFlow`, and `demo.publicClientId`, then register the public HTTPS
+The browser application is disabled by default in Helm. To enable it, set
+`webApp.enabled=true` and provide `webApp.tenantId`, `webApp.tenantDomain`,
+`webApp.userFlow`, and `webApp.publicClientId`, then register the public HTTPS
 origin as a single-page application redirect URI in the customer tenant.
 
 The cleanup workflow is scheduled for November 15, 2026,
-at 6 p.m. Mountain Standard Time. It requires `enable_demo_cleanup=true` and
+at 6 p.m. Mountain Standard Time. It requires `enable_scheduled_cleanup=true` and
 the `aks-cleanup` GitHub environment's `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`,
 and `AZURE_SUBSCRIPTION_ID` variables. Its identity has Contributor access
-only to the dedicated `rg-pangolin-aks-interview` resource group. Deletion
+only to its dedicated resource group. Deletion
 permanently removes its uploaded data. GitHub schedules can be delayed or
 missed; monitor the run and costs, and use the workflow's manual delete option
 if necessary. The Entra administrator group and SPA redirect URI are outside
-that resource group. Remove the demo's public redirect URI from the customer
+that resource group. Remove the application's public redirect URI from the customer
 app registration before releasing its DNS name; preserve the other redirects.
 
 ## Verification
@@ -158,6 +155,6 @@ Locally verified: unit tests, the Azurite-backed API → Blob → Queue → work
 integration test, Docker Compose build and health/readiness checks, Ruff,
 Bandit, `pip-audit`, Terraform formatting and validation, Helm lint/render,
 workflow lint, and Pylance diagnostics. Azure deployment, Terraform plan/apply,
-and GitHub Actions CI have also been exercised for the temporary hosted demo.
+and GitHub Actions CI have also been exercised for the temporary hosted deployment.
 
 See the [architecture diagram](./architecture.mmd), [tenant setup record](./docs/external-id-tenant-setup.md), and [remaining product and operational gaps](./docs/production-readiness-gap-register.md).

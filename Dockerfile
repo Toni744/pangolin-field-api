@@ -12,7 +12,7 @@ RUN pip install --no-cache-dir --disable-pip-version-check -r requirements.txt \
        --no-create-home --uid 10001 --ingroup app app
 
 COPY app ./app
-COPY demo ./demo
+COPY web ./web
 USER 10001:10001
 
 EXPOSE 8000

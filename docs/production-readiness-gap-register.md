@@ -7,7 +7,7 @@ deployment. Checked items indicate implemented or verified capabilities.
 
 - [x] FastAPI upload/status API, External ID token validation, async FASTQ QC
   worker, retries, and poison queue.
-- [x] Local External ID browser demo and Azurite-backed API/worker stack.
+- [x] External ID browser application and Azurite-backed API/worker stack.
 - [x] Helm chart, opt-in AKS Terraform, workload identity definitions, CI and
   manual OIDC deployment workflow.
 - [x] Azure deployment, Terraform plan/apply, and GitHub Actions CI have been

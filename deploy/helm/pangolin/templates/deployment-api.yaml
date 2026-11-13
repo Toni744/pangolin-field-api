@@ -57,17 +57,17 @@ spec:
               value: {{ .Values.auth.scope | quote }}
             - name: ENTRA_ALLOWED_CLIENT_ID
               value: {{ .Values.auth.allowedClientId | quote }}
-            {{- if .Values.demo.enabled }}
-            - name: PANGOLIN_DEMO_UI_ENABLED
+            {{- if .Values.webApp.enabled }}
+            - name: PANGOLIN_WEB_UI_ENABLED
               value: "true"
             - name: ENTRA_EXTERNAL_ID_TENANT_ID
-              value: {{ required "demo.tenantId is required when the demo is enabled" .Values.demo.tenantId | quote }}
+              value: {{ required "webApp.tenantId is required when the web app is enabled" .Values.webApp.tenantId | quote }}
             - name: ENTRA_EXTERNAL_ID_TENANT_DOMAIN
-              value: {{ required "demo.tenantDomain is required when the demo is enabled" .Values.demo.tenantDomain | quote }}
+              value: {{ required "webApp.tenantDomain is required when the web app is enabled" .Values.webApp.tenantDomain | quote }}
             - name: ENTRA_EXTERNAL_ID_USER_FLOW
-              value: {{ required "demo.userFlow is required when the demo is enabled" .Values.demo.userFlow | quote }}
+              value: {{ required "webApp.userFlow is required when the web app is enabled" .Values.webApp.userFlow | quote }}
             - name: ENTRA_PUBLIC_CLIENT_ID
-              value: {{ required "demo.publicClientId is required when the demo is enabled" .Values.demo.publicClientId | quote }}
+              value: {{ required "webApp.publicClientId is required when the web app is enabled" .Values.webApp.publicClientId | quote }}
             {{- end }}
             - name: MAX_UPLOAD_BYTES
               value: {{ .Values.api.maxUploadBytes | int64 | quote }}

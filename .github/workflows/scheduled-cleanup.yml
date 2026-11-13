@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       action:
-        description: "Verify access or delete the demo resource group"
+        description: "Verify access or delete the hosted resource group"
         type: choice
         options:
           - verify
@@ -43,7 +43,7 @@ jobs:
             echo "delete=true" >> "$GITHUB_OUTPUT"
           elif [[ "$ACTION" == "delete" ]]; then
             if [[ "$CONFIRM_RESOURCE_GROUP" != "rg-pangolin-aks-interview" ]]; then
-              echo "Confirm the exact demo resource group before deletion."
+              echo "Confirm the exact resource group before deletion."
               exit 1
             fi
             echo "delete=true" >> "$GITHUB_OUTPUT"
@@ -56,8 +56,8 @@ jobs:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-      - name: Verify demo resource group access
+      - name: Verify resource group access
         run: az group show --name rg-pangolin-aks-interview --query name -o tsv
-      - name: Delete demo resources and uploaded data
+      - name: Delete resources and uploaded data
         if: steps.request.outputs.delete == 'true'
         run: az group delete --name rg-pangolin-aks-interview --yes

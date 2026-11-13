@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", "104857600"))
 
 app = FastAPI(title="Pangolin Field Data API", version="0.1.0")
-DEMO_DIR = Path(__file__).resolve().parent.parent / "demo"
+WEB_DIR = Path(__file__).resolve().parent.parent / "web"
 HTTP_REQUESTS = Counter(
     "pangolin_http_requests_total",
     "HTTP requests served by the Pangolin API.",
@@ -292,15 +292,15 @@ def download_sample_report(
 
 
 @app.get("/", include_in_schema=False)
-def demo_home() -> FileResponse:
-    if os.getenv("PANGOLIN_DEMO_UI_ENABLED", "").casefold() != "true":
+def web_home() -> FileResponse:
+    if os.getenv("PANGOLIN_WEB_UI_ENABLED", "").casefold() != "true":
         raise HTTPException(status_code=404, detail="Not found.")
-    return FileResponse(DEMO_DIR / "index.html")
+    return FileResponse(WEB_DIR / "index.html")
 
 
-@app.get("/demo/config.json", include_in_schema=False)
-def demo_config() -> dict[str, str]:
-    if os.getenv("PANGOLIN_DEMO_UI_ENABLED", "").casefold() != "true":
+@app.get("/config.json", include_in_schema=False)
+def web_config() -> dict[str, str]:
+    if os.getenv("PANGOLIN_WEB_UI_ENABLED", "").casefold() != "true":
         raise HTTPException(status_code=404, detail="Not found.")
 
     tenant_id = os.getenv("ENTRA_EXTERNAL_ID_TENANT_ID", "").strip()
@@ -332,7 +332,7 @@ def demo_config() -> dict[str, str]:
 
 
 app.mount(
-    "/demo/assets",
-    StaticFiles(directory=DEMO_DIR / "assets"),
-    name="demo-assets",
+    "/assets",
+    StaticFiles(directory=WEB_DIR / "assets"),
+    name="web-assets",
 )

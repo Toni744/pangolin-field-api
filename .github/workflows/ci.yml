@@ -34,14 +34,10 @@ jobs:
       - uses: hashicorp/setup-terraform@v3
       - name: Check formatting
         run: terraform fmt -check -recursive
-      - name: Initialize root Terraform configuration
-        run: terraform init -backend=false -input=false
-      - name: Validate root Terraform configuration
-        run: terraform validate
-      - name: Initialize AKS Terraform configuration
+      - name: Initialize Terraform configuration
         working-directory: infra/terraform/aks
         run: terraform init -backend=false -input=false
-      - name: Validate AKS Terraform configuration
+      - name: Validate Terraform configuration
         working-directory: infra/terraform/aks
         run: terraform validate
 

@@ -24,7 +24,7 @@ Missing auth configuration fails closed. Requests without a valid token receive
 
 ## Browser application
 
-The local demo is a same-origin browser app using MSAL Browser, authorization
+The local browser app is a same-origin application using MSAL Browser, authorization
 code with PKCE, and the existing public client registration. It requests the
 delegated `api://<API-client-ID>/samples.write` scope and sends only the
 resulting access token to the API. No client secret is used or exposed.
@@ -33,8 +33,8 @@ Register `http://localhost:8081/` under the client's **Single-page
 application** redirect URIs, retain the native redirect URI, and ensure the
 client is assigned to `fieldusersignin` with the API's `samples.write`
 permission. Start the local stack with `docker compose up --build -d`; the page
-is at `http://localhost:8081/`. The demo UI is disabled unless
-`PANGOLIN_DEMO_UI_ENABLED=true`.
+is at `http://localhost:8081/`. The browser UI is disabled unless
+`PANGOLIN_WEB_UI_ENABLED=true`.
 
 ## Mobile sign-in
 

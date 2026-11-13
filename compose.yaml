@@ -53,7 +53,7 @@ services:
     build: .
     environment:
       <<: *pangolin-environment
-      PANGOLIN_DEMO_UI_ENABLED: "true"
+      PANGOLIN_WEB_UI_ENABLED: "true"
     ports:
       - "127.0.0.1:8081:8000"
     depends_on:

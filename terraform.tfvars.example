@@ -1,9 +1,0 @@
-subscription_id             = "00000000-0000-0000-0000-000000000000"
-storage_account_name        = "replacewithuniquevalue"
-container_registry_name     = "replacewithuniquevalue"
-deploy_platform             = false
-deploy_api                  = false
-entra_external_id_issuer   = "https://09611948-7df4-4927-800d-f707197bab70.ciamlogin.com/09611948-7df4-4927-800d-f707197bab70/v2.0"
-entra_external_id_jwks_url = "https://pangolincustomers.ciamlogin.com/09611948-7df4-4927-800d-f707197bab70/discovery/v2.0/keys"
-entra_api_audience          = "d0000cca-0900-4c3f-92cf-45e320e62112"
-entra_api_scope             = "samples.write"
