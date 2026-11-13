@@ -124,7 +124,9 @@ and `AZURE_SUBSCRIPTION_ID` variables. Its identity has Contributor access
 only to the dedicated `rg-pangolin-aks-interview` resource group. Deletion
 permanently removes its uploaded data. GitHub schedules can be delayed or
 missed; monitor the run and costs, and use the workflow's manual delete option
-if necessary. The Entra administrator group is outside that resource group.
+if necessary. The Entra administrator group and SPA redirect URI are outside
+that resource group. Remove the demo's public redirect URI from the customer
+app registration before releasing its DNS name; preserve the other redirects.
 
 ## Verification
 
@@ -132,6 +134,7 @@ Locally verified: unit tests, the Azurite-backed API → Blob → Queue → work
 integration test, Docker Compose build and health/readiness checks, Ruff,
 Bandit, `pip-audit`, Terraform formatting and validation, Helm lint/render,
 workflow lint, and Pylance diagnostics. Azure deployment, Terraform plan/apply,
-and a GitHub Actions run have not been verified.
+and GitHub Actions CI have also been exercised for the interview demo. The
+public demo is temporary and is not a production deployment.
 
 See the [architecture diagram](./architecture.mmd), [tenant setup record](./docs/external-id-tenant-setup.md), and [remaining product and operational gaps](./docs/production-readiness-gap-register.md).
