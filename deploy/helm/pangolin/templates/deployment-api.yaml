@@ -70,7 +70,7 @@ spec:
               value: {{ required "demo.publicClientId is required when the demo is enabled" .Values.demo.publicClientId | quote }}
             {{- end }}
             - name: MAX_UPLOAD_BYTES
-              value: {{ .Values.api.maxUploadBytes | quote }}
+              value: {{ .Values.api.maxUploadBytes | int64 | quote }}
             - name: LOG_LEVEL
               value: {{ .Values.api.logLevel | quote }}
           livenessProbe:

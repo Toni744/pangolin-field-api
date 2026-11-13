@@ -68,7 +68,10 @@ jobs:
             --set serviceAccount.apiClientId=00000000-0000-0000-0000-000000000001 \
             --set serviceAccount.workerClientId=00000000-0000-0000-0000-000000000002 \
             --set storage.accountUrl=https://example.blob.core.windows.net \
-            --set storage.queueUrl=https://example.queue.core.windows.net
+            --set storage.queueUrl=https://example.queue.core.windows.net \
+            > "$RUNNER_TEMP/pangolin-render.yaml"
+          grep -A1 'name: MAX_UPLOAD_BYTES' "$RUNNER_TEMP/pangolin-render.yaml" \
+            | grep -Fx '              value: "104857600"'
 
   security:
     runs-on: ubuntu-latest
